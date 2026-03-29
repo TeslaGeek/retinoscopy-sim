@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retinoscopy Physics — Phase 1 V2</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #111;
+            color: #ddd;
+            font-family: 'Courier New', Courier, monospace;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        h1 {
+            font-size: 1.0em;
+            color: #666;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 22px;
+            text-align: center;
+        }
+
+        #layout {
+            display: flex;
+            gap: 28px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        #canvasArea {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #hint {
+            font-size: 0.68em;
+            color: #666;
+            letter-spacing: 1px;
+        }
+
+        #controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 230px;
+        }
+
+        .panel {
+            background: #171717;
+            border: 1px solid #252525;
+            border-radius: 5px;
+            padding: 13px;
+        }
+
+        .panel-title {
+            font-size: 0.63em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 11px;
+        }
+
+        .field-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .field-row:last-child { margin-bottom: 0; }
+
+        .field-label {
+            font-size: 0.78em;
+            color: #666;
+            width: 40px;
+            flex-shrink: 0;
+        }
+
+        .field-unit {
+            font-size: 0.72em;
+            color: #777;
+        }
+
+        input[type="number"] {
+            background: #0e0e0e;
+            border: 1px solid #2c2c2c;
+            border-radius: 3px;
+            color: #ccc;
+            font-family: 'Courier New', monospace;
+            font-size: 0.88em;
+            padding: 5px 8px;
+            width: 80px;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #444;
+        }
+
+        /* hide spinner arrows */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { opacity: 0.3; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        .axis-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .axis-lbl {
+            font-size: 0.78em;
+            color: #666;
+            width: 40px;
+        }
+
+        .step-btn {
+            background: #1e1e1e;
+            border: 1px solid #2c2c2c;
+            border-radius: 3px;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.9em;
+            padding: 5px 11px;
+            line-height: 1;
+        }
+
+        .step-btn:hover  { background: #252525; color: #bbb; }
+        .step-btn:active { background: #2a2a2a; }
+
+        #axisDisplay {
+            font-size: 1.0em;
+            color: #ddd;
+            min-width: 38px;
+            text-align: center;
+        }
+
+        .axis-sub {
+            font-size: 0.67em;
+            color: #666;
+            margin-top: 9px;
+        }
+
+        .collar-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .collar-end {
+            font-size: 0.65em;
+            color: #666;
+            line-height: 1;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: #484848;
+            cursor: pointer;
+        }
+
+        .collar-readout {
+            font-size: 0.74em;
+            color: #777;
+            margin-top: 5px;
+        }
+
+        .collar-readout span { color: #aaa; }
+
+    </style>
+</head>
+<body>
+
+<h1>Retinoscopy Physics Engine &mdash; Phase 1</h1>
+
+<div id="layout">
+
+    <!-- Eye canvas -->
+    <div id="canvasArea">
+        <canvas id="eye" width="600" height="600"></canvas>
+        <p id="hint">move mouse over eye &bull; streak follows cursor</p>
+    </div>
+
+    <!-- Control panel -->
+    <div id="controls">
+
+        <!-- Prescription input -->
+        <div class="panel">
+            <div class="panel-title">Patient Prescription</div>
+            <div class="field-row">
+                <span class="field-label">SPH</span>
+                <input type="number" id="inSph"  value="0.00" step="0.25" min="-20" max="20">
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">CYL</span>
+                <input type="number" id="inCyl"  value="0.00" step="0.25" min="-6"  max="0">
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">AXIS</span>
+                <input type="number" id="inAxis" value="0"    step="1"    min="0"   max="180">
+                <span class="field-unit">°</span>
+            </div>
+        </div>
+
+        <!-- Streak axis -->
+        <div class="panel">
+            <div class="panel-title">Streak Axis</div>
+            <div class="axis-row">
+                <span class="axis-lbl">Axis</span>
+                <button class="step-btn" id="axisDown">&#9660;</button>
+                <span id="axisDisplay">90°</span>
+                <button class="step-btn" id="axisUp">&#9650;</button>
+            </div>
+            <div class="axis-sub">5° per step &middot; wraps 0–175°</div>
+        </div>
+
+        <!-- Retinoscope setup -->
+        <div class="panel">
+            <div class="panel-title">Retinoscope</div>
+            <div class="field-row">
+                <span class="field-label">WD</span>
+                <input type="number" id="inWD" value="67" step="1" min="30" max="120">
+                <span class="field-unit">cm</span>
+            </div>
+            <div style="margin-top:6px;">
+                <div style="font-size:0.67em;color:#888;letter-spacing:1px;">COLLAR</div>
+                <div class="collar-row">
+                    <span class="collar-end">&#9660;</span>
+                    <input type="range" id="collarSlider" min="0.064" max="0.085" step="0.001" value="0.064">
+                    <span class="collar-end">&#9650;</span>
+                </div>
+                <div class="collar-readout">u = <span id="collarVal">0.064</span> m</div>
+            </div>
+        </div>
+
+        <!-- Trial lens controls -->
+        <div class="panel">
+            <div class="panel-title">Trial Lens</div>
+            <div class="field-row">
+                <span class="field-label">SPH</span>
+                <input type="number" id="tlSph"  value="0.00" step="0.25" min="-20" max="20">
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">CYL</span>
+                <input type="number" id="tlCyl"  value="0.00" step="0.25" min="-6"  max="0">
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">AXIS</span>
+                <input type="number" id="tlAxis" value="0"    step="1"    min="0"   max="180">
+                <span class="field-unit">°</span>
+            </div>
+        </div>
+
+    </div><!-- /controls -->
+</div><!-- /layout -->
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+//  RETINOSCOPY PHYSICS ENGINE — PHASE 1
+//  Standalone HTML/JS validation prototype.
+//
+//  Based on:
+//    Smith, G. & Haymes, S. (2003). "The optics of clinical
+//    retinoscopy." Clinical and Experimental Optometry, 86(3).
+//    Equations referenced as "Eq. N" throughout this file.
+//
+//  What this simulator models:
+//    • A single eye with a sphero-cylindrical refractive error
+//      entered in minus-cylinder form (SPH / CYL / AXIS).
+//    • A streak retinoscope whose beam orientation is set by the
+//      clinician (streak axis, 0–175° in 5° steps).
+//    • Working distance (WD) entered in centimetres; converted to
+//      vergence W (dioptres) internally.
+//    • Collar position: moves the condensing lens relative to the
+//      light source, changing the vergence of the illuminating
+//      beam from divergent (collar down) through plane-wave to
+//      convergent (collar up), modelled via the thin-lens equation.
+//    • The pupil reflex: its position, orientation, brightness,
+//      and width are computed each animation frame and rendered as
+//      a Gaussian-blurred line on a canvas representing the eye.
+//
+//  What this simulator does NOT yet model:
+//    • Trial lenses placed in front of the patient's eye.
+//      (That is the goal of Phase 2 / V2.)
+//    • A second eye (binocular setup).
+//    • Accommodation or dynamic pupil size.
+//    • The peephole/mirror optics of the retinoscope itself.
+//
+//  Coordinate system (physics frame, used in all calculations):
+//    • Origin at pupil centre.
+//    • u = horizontal axis, positive to the right.
+//    • v = vertical axis, positive upward.
+//    • Canvas Y is inverted (positive Y goes down on screen),
+//      so v_physics = −(canvas_y − canvas_centre_y).
+//    • All distances in metres; vergences in dioptres (1/m).
+//    • Angles in degrees in the UI; radians internally.
+//
+//  Key vergence variables (dioptres):
+//    W   = working-distance vergence  = 100 / WD_cm
+//    X   = source vergence            = 1 / x_total
+//          where x_total = w + v  (w = 1/W, v from thin lens)
+//    Kα  = principal power at cylinder axis α  = −S
+//    Kα90= principal power perpendicular to α  = −(S + C)
+// ═══════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════
+//  PHYSICS CONSTANTS  (truly fixed — not adjustable by the user)
+// ═══════════════════════════════════════════════════════════════════
+const D_HOLE    = 0.0015;   // diameter of the retinoscope sight hole (m)
+                             // used in Eq. 13 to compute reflex width d'
+const PUPIL_R_M = 0.004;    // physical pupil radius (m) — represents a
+                             // dilated dark-room pupil (~8 mm diameter)
+const LENS_F    = 0.07;     // focal length of the collar condensing lens (m)
+                             // at u = LENS_F the beam becomes parallel (plane wave)
+
+// ═══════════════════════════════════════════════════════════════════
+//  CANVAS GEOMETRY
+//  The eye is rendered on a 600×600 pixel canvas.
+//  CX, CY mark the canvas centre, which maps to the pupil centre
+//  (the physics origin).  SCALE converts pixels ↔ metres so that
+//  PUPIL_R pixels corresponds to PUPIL_R_M metres.
+// ═══════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('eye');
+const ctx    = canvas.getContext('2d');
+const CW = canvas.width;   // canvas width  (px) = 600
+const CH = canvas.height;  // canvas height (px) = 600
+const CX = CW / 2;         // canvas centre x (px) = 300 — maps to u = 0
+const CY = CH / 2;         // canvas centre y (px) = 300 — maps to v = 0
+
+const IRIS_R  = 145;   // iris radius (px) — the coloured part of the eye
+const PUPIL_R = 97;    // pupil radius (px) — dilated dark-room pupil
+                        // ~67% of iris radius, matching real anatomy
+const SCALE   = PUPIL_R_M / PUPIL_R;   // metres per pixel (≈ 4.12 × 10⁻⁵ m/px)
+                                         // multiply px by SCALE → metres
+                                         // divide metres by SCALE → px
+
+// ═══════════════════════════════════════════════════════════════════
+//  APPLICATION STATE
+//  A single object holds all mutable values that drive the physics.
+//  UI event handlers write into this object; computeFrame() reads it.
+//  Nothing else should mutate these values.
+// ═══════════════════════════════════════════════════════════════════
+const st = {
+    // ── Patient prescription (minus-cylinder form) ──────────────────
+    S:           0,     // sphere power (D); negative = myope, positive = hyperope
+    C:           0,     // cylinder power (D); always ≤ 0 in minus-cyl notation
+    rxAlpha_deg: 0,     // cylinder axis (°); 0–180, standard TABO convention
+
+    // ── Retinoscope controls ────────────────────────────────────────
+    theta_deg:   90,    // streak orientation (°); 0 = horizontal, 90 = vertical
+                        // the clinician rotates this to align with the reflex
+    wd_cm:       67,    // working distance (cm); typical clinical range 50–100 cm
+                        // converted to vergence W = 100/wd_cm inside calcW()
+    collar_u:    0.064, // source-to-condensing-lens distance (m)
+                        // range 0.064 (collar down, divergent) → 0.085 (collar up, convergent)
+                        // at u = LENS_F = 0.070 m the beam is parallel (plane waves)
+
+    // ── Trial lens (student's correction, minus-cyl form) ───────────
+    // Default all zeros = no lens in place; residual error = patient Rx
+    trialS:      0,     // trial sphere (D)
+    trialC:      0,     // trial cylinder (D, always ≤ 0)
+    trialAxis:   0,     // trial cylinder axis (°)
+
+    // ── Mouse / interaction ─────────────────────────────────────────
+    mouseX:      CX,    // current mouse x on canvas (px); initialised to centre
+    mouseY:      CY,    // current mouse y on canvas (px); initialised to centre
+    onCanvas:    false  // true while the mouse is over the canvas; controls rendering
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  DERIVED VERGENCES
+//  These two functions convert the user's cm/slider inputs into the
+//  optical vergences W and X that the physics equations need.
+//  They are called every frame via computeFrame().
+// ═══════════════════════════════════════════════════════════════════
+
+// calcW — working-distance vergence (D)
+//   W = 1/w = 100 / wd_cm
+//   Example: 67 cm → W = 1.49 D
+function calcW() { return 100 / st.wd_cm; }
+
+// calcX — source vergence (D) as seen by the patient's eye
+//
+//  The collar moves a condensing lens relative to the bulb filament.
+//  The thin lens equation gives the image distance v (metres):
+//
+//      v = −(u · f) / (u − f)
+//
+//  where u = collar_u (source-to-lens distance) and f = LENS_F.
+//  Sign convention: v > 0 = virtual image behind the lens (diverging
+//  beam); v < 0 = real image in front of the lens (converging beam).
+//
+//  The total source distance from the patient is then:
+//      x_total = w + v   (w = 1/W, the working distance in metres)
+//  and source vergence:
+//      X = 1 / x_total
+//
+//  Two singularity guards are needed:
+//    1. u ≈ f  → v → ±∞ → parallel beam → X = 0 (plane waves)
+//    2. x_total ≈ 0 → the converging focus lands at the patient's eye
+//       → X → ±∞; clamped to ±200 D to avoid division by zero.
+function calcX(W) {
+    if (Math.abs(st.collar_u - LENS_F) < 0.0001) return 0;   // guard 1: plane waves
+    const v       = -(st.collar_u * LENS_F) / (st.collar_u - LENS_F);
+    const x_total = 1 / W + v;
+    if (Math.abs(x_total) < 0.005) return x_total >= 0 ? 200 : -200; // guard 2
+    return 1 / x_total;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UI EVENT HANDLERS
+//  Each handler updates the relevant property in `st` and, where the
+//  change affects the read-only optical parameters panel, also calls
+//  readTrialLens() to keep the trial lens state current.
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Prescription inputs (SPH / CYL / AXIS) ───────────────────────
+// Reads all three fields at once so they stay in sync.
+// The `|| 0` handles empty or invalid input gracefully.
+function readRx() {
+    st.S           = parseFloat(document.getElementById('inSph').value)  || 0;
+    st.C           = parseFloat(document.getElementById('inCyl').value)  || 0;
+    st.rxAlpha_deg = parseFloat(document.getElementById('inAxis').value) || 0;
+}
+['inSph','inCyl','inAxis'].forEach(id =>
+    document.getElementById(id).addEventListener('change', readRx)
+);
+
+// ── Streak axis buttons ───────────────────────────────────────────
+// Steps ±5° and wraps within 0–175° (180° = same as 0° for a line).
+document.getElementById('axisUp').addEventListener('click', () => {
+    st.theta_deg = (st.theta_deg + 5) % 180;
+    document.getElementById('axisDisplay').textContent = st.theta_deg + '°';
+});
+document.getElementById('axisDown').addEventListener('click', () => {
+    st.theta_deg = ((st.theta_deg - 5) + 180) % 180;
+    document.getElementById('axisDisplay').textContent = st.theta_deg + '°';
+});
+
+// ── Working distance input (cm) ───────────────────────────────────
+// Clamps to the allowed range (30–120 cm) and corrects the displayed
+// value if the user typed something out of range.
+document.getElementById('inWD').addEventListener('change', function () {
+    const v = parseFloat(this.value);
+    if (v >= 30 && v <= 120) st.wd_cm = v;
+    else { st.wd_cm = Math.max(30, Math.min(120, v || 67)); this.value = st.wd_cm; }
+});
+
+// ── Collar slider ─────────────────────────────────────────────────
+// collar_u is the physical source-to-lens distance in metres.
+// Range 0.064 (down, divergent) → 0.085 (up, convergent).
+document.getElementById('collarSlider').addEventListener('input', function () {
+    st.collar_u = parseFloat(this.value);
+    document.getElementById('collarVal').textContent = st.collar_u.toFixed(3);
+});
+
+// ── Mouse tracking ────────────────────────────────────────────────
+// The streak position follows the mouse.  The bounding-rect division
+// corrects for any CSS scaling of the canvas element.
+canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    st.mouseX = (e.clientX - r.left) * (CW / r.width);
+    st.mouseY = (e.clientY - r.top)  * (CH / r.height);
+});
+canvas.addEventListener('mouseenter', () => { st.onCanvas = true;  });
+canvas.addEventListener('mouseleave', () => { st.onCanvas = false; });
+
+// ── Trial lens inputs ─────────────────────────────────────────────
+// Reads all three trial lens fields.  Uses the same minus-cyl
+// convention as the patient prescription.
+function readTrialLens() {
+    st.trialS    = parseFloat(document.getElementById('tlSph').value)  || 0;
+    st.trialC    = parseFloat(document.getElementById('tlCyl').value)  || 0;
+    st.trialAxis = parseFloat(document.getElementById('tlAxis').value) || 0;
+}
+['tlSph','tlCyl','tlAxis'].forEach(id =>
+    document.getElementById(id).addEventListener('change', readTrialLens)
+);
+
+// ═══════════════════════════════════════════════════════════════════
+//  TRIAL LENS RESIDUAL COMPUTATION  (Keating 1980)
+//
+//  When a trial lens is placed in front of the eye, the effective
+//  refractive error the retinoscope sees is:
+//
+//      residual = patient prescription − trial lens
+//
+//  Simple subtraction works only when the cylinder axes are aligned.
+//  For the general case we use the dioptric power matrix method
+//  (Keating 1980) which handles arbitrary axis combinations correctly.
+//
+//  Reference: Keating MP (1980). "An Easier Method to Obtain the
+//  Sphere, Cylinder, and Axis from an Off-Axis Dioptric Power Matrix."
+//  Am J Optom Physiol Opt, 57(10), pp. 734–737.
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * spherocylToMatrix — convert a spherocylinder to a 2×2 power matrix.
+ * Keating (1980), Equation 2.
+ *
+ * The matrix elements are:
+ *   f11 = S + C·sin²θ        (power in the horizontal meridian)
+ *   f12 = −C·sinθ·cosθ       (off-diagonal cross-term)
+ *   f22 = S + C·cos²θ        (power in the vertical meridian)
+ * The matrix is symmetric (f21 = f12).
+ *
+ * @param {number} S    sphere power (D)
+ * @param {number} C    cylinder power (D, negative for minus-cyl)
+ * @param {number} axis cylinder axis (degrees, 0–180)
+ * @returns {{f11, f12, f22}}
+ */
+function spherocylToMatrix(S, C, axis) {
+    const th  = axis * Math.PI / 180;
+    const sin = Math.sin(th);
+    const cos = Math.cos(th);
+    return {
+        f11:  S + C * sin * sin,
+        f12: -C * sin * cos,
+        f22:  S + C * cos * cos
+    };
+}
+
+/**
+ * matrixToSpherocyl — convert a 2×2 power matrix back to spherocylinder.
+ * Uses Keating (1980) trace/determinant method (Equations 13, 15, 16).
+ * Always returns minus-cylinder form.
+ *
+ * @param {number} f11  top-left matrix element
+ * @param {number} f12  off-diagonal element (= f21, matrix is symmetric)
+ * @param {number} f22  bottom-right matrix element
+ * @returns {{S, C, axis}} in minus-cyl form
+ */
+function matrixToSpherocyl(f11, f12, f22) {
+    const EPS  = 1e-6;
+    const t    = f11 + f22;                  // trace  = 2S + C
+    const d    = f11 * f22 - f12 * f12;     // determinant = S(S+C)
+    const disc = t * t - 4 * d;             // discriminant (≥ 0 for real prescriptions)
+
+    // Keating Eq. 15: negative square root gives minus-cyl form
+    const Ce = -Math.sqrt(Math.max(disc, 0));   // clamp rounding errors to 0
+    const Se = (t - Ce) / 2;                    // Keating Eq. 13
+
+    let axisDeg = 0;
+
+    if (Math.abs(Ce) < EPS) {
+        // Purely spherical — cylinder is zero, axis is undefined; default 0
+        axisDeg = 0;
+    } else if (Math.abs(f12) < EPS) {
+        // Off-diagonal is zero: axes already aligned with horizontal/vertical
+        axisDeg = (f11 <= f22) ? 90 : 0;
+    } else {
+        // General case — Keating Eq. 16
+        let axisRad = Math.atan((Se - f11) / f12);
+        if (axisRad < 0) axisRad += Math.PI;   // shift into 0–180° range
+        axisDeg = axisRad * 180 / Math.PI;
+    }
+
+    return { S: Se, C: Ce, axis: Math.round(axisDeg) };
+}
+
+/**
+ * computeResidual — residual refractive error after applying trial lens.
+ * Called once per animation frame, before the Smith & Haymes equations.
+ *
+ * Steps:
+ *   1. Convert patient Rx and trial lens to power matrices.
+ *   2. Subtract element-wise: Fr = Fp − Ft.
+ *   3. Convert residual matrix back to spherocylinder.
+ *
+ * When no trial lens is in place (trialS = trialC = 0), Fr = Fp and
+ * the residual equals the patient prescription — correct baseline.
+ * When the trial lens exactly matches the patient Rx, Fr = zero matrix
+ * and both principal powers Kα and Kα90 equal W → neutralisation.
+ *
+ * @param {{S,C,axis}} patientRx  patient prescription
+ * @param {{S,C,axis}} trialRx   student's current trial lens
+ * @returns {{S,C,axis}} residual in minus-cyl form
+ */
+function computeResidual(patientRx, trialRx) {
+    const Fp = spherocylToMatrix(patientRx.S, patientRx.C, patientRx.axis);
+    const Ft = spherocylToMatrix(trialRx.S,   trialRx.C,   trialRx.axis);
+    return matrixToSpherocyl(
+        Fp.f11 - Ft.f11,
+        Fp.f12 - Ft.f12,
+        Fp.f22 - Ft.f22
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PHYSICS ENGINE  — computeFrame()
+//
+//  Called every animation frame.  Reads the current application
+//  state (st), applies the Smith & Haymes equations, and returns
+//  everything the renderer needs to draw one frame.
+//
+//  All internal calculations use radians and metres.
+//  Degrees and centimetres only appear at the UI boundary.
+// ═══════════════════════════════════════════════════════════════════
+function computeFrame() {
+
+    // ── Step 1: Derive vergences from UI state ───────────────────────
+    const W     = calcW();      // working-distance vergence (D)
+    const X_SRC = calcX(W);     // source vergence (D), via thin-lens collar model
+
+    // ── Step 2: Residual refractive error (patient Rx minus trial lens) ─
+    // computeResidual() uses Keating's (1980) dioptric power matrix method
+    // so that off-axis cylinder combinations are handled correctly.
+    // When no trial lens is in place (trialS = trialC = 0) the residual
+    // equals the patient prescription unchanged.
+    const residual = computeResidual(
+        { S: st.S,      C: st.C,      axis: st.rxAlpha_deg },
+        { S: st.trialS, C: st.trialC, axis: st.trialAxis   }
+    );
+
+    // Principal powers from residual error  (Smith & Haymes Eq. 3)
+    //   Kα    = −residual.S              (power at residual cylinder axis)
+    //   Kα+90 = −(residual.S + residual.C)  (power in the perpendicular meridian)
+    // When residual = zero (full correction), Ka = Ka90 = 0 and both
+    // equal W only when W = 0, which never happens — but near-zero
+    // residual causes dKa ≈ dKa90 ≈ W, giving maximum brightness and
+    // reflex filling the pupil (neutralisation).
+    const Ka   = -residual.S;
+    const Ka90 = -(residual.S + residual.C);
+
+    // ── Step 3: Convert angles to radians ────────────────────────────
+    // alpha now comes from the RESIDUAL axis, not the raw patient axis —
+    // this is essential when the trial lens cylinder axis differs from
+    // the patient's cylinder axis, as the residual can have a different axis.
+    const alpha = residual.axis * Math.PI / 180;  // residual cylinder axis
+    const theta = st.theta_deg  * Math.PI / 180;  // streak orientation angle
+
+    // ── Step 4: Mouse position → pupil-plane coordinates (metres) ───
+    // The mouse position on the canvas tells us where the streak is
+    // relative to the pupil centre.  Canvas Y is inverted vs physics Y.
+    const u_m =  (st.mouseX - CX) * SCALE;   // horizontal offset (m), +ve = right
+    const v_m = -(st.mouseY - CY) * SCALE;   // vertical offset (m),   +ve = up
+
+    // ── Step 5: Perpendicular streak offset s_m ──────────────────────
+    // s_m is the signed perpendicular distance (metres) from the pupil
+    // centre to the streak line.  It is computed from the point on the
+    // streak that the mouse is currently at (u_m, v_m) and the streak
+    // direction (given by orientation angle θ):
+    //
+    //   s_m = u_m · sin(θ) − v_m · cos(θ)
+    //
+    // When the streak passes through the pupil centre, s_m = 0 and
+    // the reflex centre coincides with the pupil centre (p₁ = q₁ = 0).
+    const s_m = u_m * Math.sin(theta) - v_m * Math.cos(theta);
+
+    // ── Step 6: Anisotropy ratio Γ  (Eq. 9) ─────────────────────────
+    // Γ = (W − Kα) / (W − Kα90)
+    // This describes how the two principal meridians respond differently
+    // to the working distance.  For a spherical eye (no cylinder),
+    // Ka = Ka90, so Γ = 1 and the reflex orientation β equals θ (no skew).
+    // For an astigmatic eye, Γ ≠ 1 and the reflex skews away from the streak.
+    // Guard against division by zero if Ka90 = W (exact neutralisation in that meridian).
+    const dKa   = W - Ka;    // "distance to far point" in Kα meridian
+    const dKa90 = W - Ka90;  // "distance to far point" in Kα90 meridian
+    const Gamma  = Math.abs(dKa90) < 1e-9
+        ? 1e9 * Math.sign(dKa)   // Ka90 ≈ W: Γ → ±∞ (clamped)
+        : dKa / dKa90;
+
+    // ── Step 7: Reflex orientation β  (Eq. 12) ──────────────────────
+    // β = α + atan( Γ · tan(θ − α) )
+    //
+    // Rewritten from the original form for numerical stability:
+    // tan(θ − α) can be very large when θ − α ≈ 90°, but atan handles
+    // that gracefully (atan(±∞) = ±π/2) whereas the original form
+    // could produce NaN through 0 × ∞.
+    const phi  = Math.atan(Gamma * Math.tan(theta - alpha));
+    const beta = alpha + phi;   // reflex orientation angle (radians)
+
+    // ── Step 8: Reflex position  (Eq. 25b, corrected) ───────────────
+    // The reflex centre is computed in the principal-meridian frame
+    // (p along Kα, q perpendicular) then rotated back to screen coords.
+    //
+    // Corrected form derived from first principles:
+    //   s_paper = −s_m · (W − X) / X   relates our s_m to the paper's
+    //   source-displacement variable.  Substituting into the paper's
+    //   Eq. 25b cancels X from the numerator, giving:
+    //
+    //   p₁ = + s_m · (W − X) · sin(θ − α) / (W − Kα)
+    //   q₁ = − s_m · (W − X) · cos(θ − α) / (W − Kα+90)
+    //
+    // NOTE: when W > X (collar down, divergent) the factor (W−X) > 0
+    // and the reflex moves in the expected direction ("with" for hyperope,
+    // "against" for myope).  When W < X (collar up, convergent), (W−X)
+    // changes sign and the movement direction reverses — which is the
+    // clinically correct behaviour for convergent illumination.
+
+    // NEU threshold: prevents the reflex from becoming infinitely fast
+    // exactly at neutralisation (where dKa or dKa90 = 0).
+    // The floor is set to 0.01 D so the "flash" at reversal is brief
+    // but not completely invisible.
+    const NEU   = 0.01;
+    const WmX   = W - X_SRC;         // (W − X) factor, carries sign for collar direction
+    const sinTA = Math.sin(theta - alpha);
+    const cosTA = Math.cos(theta - alpha);
+
+    // effD: floors |d| at NEU while keeping sign intact.
+    // If d is exactly 0 (true neutralisation, which is a single mathematical
+    // point) we randomise the sign so the reflex flickers rather than
+    // always showing "with" movement (which would be physically wrong).
+    function effD(d) {
+        if (Math.abs(d) >= NEU) return d;
+        const s = d === 0 ? (Math.random() < 0.5 ? 1 : -1) : Math.sign(d);
+        return s * NEU;
+    }
+    const effDKa   = effD(dKa);
+    const effDKa90 = effD(dKa90);
+
+    // Principal-meridian frame coordinates of the reflex centre (metres)
+    const p1 =  s_m * WmX * sinTA / effDKa;
+    const q1 = -s_m * WmX * cosTA / effDKa90;
+
+    // ── Step 9: Rotate reflex centre back to screen frame  (App. A2) ─
+    // The principal-meridian frame is rotated by α relative to the
+    // screen frame.  Standard 2D rotation matrix, applied in reverse:
+    //   u₁ =  p₁·cos(α) − q₁·sin(α)
+    //   v₁ =  p₁·sin(α) + q₁·cos(α)
+    const cosA = Math.cos(alpha);
+    const sinA = Math.sin(alpha);
+    const u1 =  p1 * cosA - q1 * sinA;   // screen-frame horizontal (m)
+    const v1 =  p1 * sinA + q1 * cosA;   // screen-frame vertical   (m)
+
+    // Convert to canvas pixel coordinates.
+    // The reflex centre is NOT clamped to the pupil edge — the renderer
+    // clips to the pupil circle, so when the centre is outside the pupil
+    // only the Gaussian tail that falls inside is visible (natural fade).
+    // A loose ±5×PUPIL_R clamp prevents extreme values near neutralisation
+    // from causing floating-point overflow in the canvas API.
+    const MAX_PX = 5 * PUPIL_R;
+    const xRef = CX + Math.max(-MAX_PX, Math.min(MAX_PX, u1 / SCALE));
+    const yRef = CY - Math.max(-MAX_PX, Math.min(MAX_PX, v1 / SCALE));  // Y inverted
+
+    // ── Step 10: Reflex geometric width d'  (Eq. 13) ────────────────
+    // d' = | D_hole · W / (W − K) |   (capped at pupil diameter)
+    //
+    // This is the projected width of the sight hole at the pupil plane.
+    // As the patient's far point approaches the retinoscope (K → W),
+    // d' grows toward the full pupil diameter — the reflex fills the
+    // pupil near neutralisation.  For high defocus (K far from W), d'
+    // is small.  We average d' across the two principal meridians.
+    const PUPIL_D_M = 2 * PUPIL_R_M;
+    const dp_Ka   = Math.abs(dKa)   < 1e-9 ? PUPIL_D_M
+                  : Math.min(PUPIL_D_M, Math.abs(D_HOLE * W / dKa));
+    const dp_Ka90 = Math.abs(dKa90) < 1e-9 ? PUPIL_D_M
+                  : Math.min(PUPIL_D_M, Math.abs(D_HOLE * W / dKa90));
+    const d_prime_m  = (dp_Ka + dp_Ka90) / 2;
+    const d_prime_px = d_prime_m / SCALE;   // same quantity in pixels
+
+    // ── Step 11: Reflex brightness  (Eq. 15) ─────────────────────────
+    // Luminance in each meridian falls off as 1 / (1 + |W − K|).
+    // When W = K (neutralisation) the reflex is brightest (lum = 1).
+    // For large defocus the reflex dims.  We take the brighter meridian
+    // and apply a mild gamma (0.7) to keep the reflex visible at
+    // moderate prescriptions without clipping at neutralisation.
+    const lumKa   = 1 / (1 + Math.abs(dKa));
+    const lumKa90 = 1 / (1 + Math.abs(dKa90));
+    const lumBase = Math.max(lumKa, lumKa90);   // take the better-lit meridian
+    const lum = Math.pow(lumBase, 0.7);          // gamma correction
+
+    // Return everything the renderer needs for this frame
+    return {
+        W, X_SRC,
+        beta, xRef, yRef,
+        d_prime_px, d_prime_mm: d_prime_m * 1000,
+        lum, Gamma, s_m, p1, q1, Ka, Ka90,
+        beta_deg: beta * 180 / Math.PI
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RENDERER  — draw()
+//
+//  Called via requestAnimationFrame (once per browser paint cycle,
+//  typically 60 fps).  Calls computeFrame() to get the physics
+//  results for the current state, then paints:
+//    1. Background
+//    2. Iris (with radial gradient shading)
+//    3. Pupil (dark circle)
+//    4. Pupil reflex (Gaussian-blurred line, clipped to pupil)
+//    5. Streak (unblurred rectangle over the whole eye)
+//    6. Debug readout (optional text panel)
+// ═══════════════════════════════════════════════════════════════════
+function draw() {
+    const r     = computeFrame();                        // run physics for this frame
+    const theta = st.theta_deg * Math.PI / 180;         // streak angle in radians
+
+    // ── 1. Background ────────────────────────────────────────────────
+    ctx.fillStyle = '#0c0c0c';
+    ctx.fillRect(0, 0, CW, CH);
+
+    // ── 2. Iris ──────────────────────────────────────────────────────
+    // Solid brown base coat
+    ctx.beginPath();
+    ctx.arc(CX, CY, IRIS_R, 0, Math.PI * 2);
+    ctx.fillStyle = '#6b4c1e';
+    ctx.fill();
+
+    // Radial gradient overlay: darkens near the pupil margin and at the
+    // limbus (outer edge) to give a more realistic iris appearance.
+    const irisGrad = ctx.createRadialGradient(CX, CY, PUPIL_R, CX, CY, IRIS_R);
+    irisGrad.addColorStop(0,    'rgba(0,0,0,0.55)');
+    irisGrad.addColorStop(0.35, 'rgba(0,0,0,0.10)');
+    irisGrad.addColorStop(0.80, 'rgba(0,0,0,0.05)');
+    irisGrad.addColorStop(1,    'rgba(0,0,0,0.75)');
+    ctx.beginPath();
+    ctx.arc(CX, CY, IRIS_R, 0, Math.PI * 2);
+    ctx.fillStyle = irisGrad;
+    ctx.fill();
+
+    // ── 3. Pupil ──────────────────────────────────────────────────────
+    ctx.beginPath();
+    ctx.arc(CX, CY, PUPIL_R, 0, Math.PI * 2);
+    ctx.fillStyle = '#040404';   // near-black
+    ctx.fill();
+
+    // ── 4. Pupil reflex ───────────────────────────────────────────────
+    // Only drawn when the mouse (= retinoscope streak) is over the canvas.
+    if (st.onCanvas) {
+        ctx.save();
+
+        // Clip all drawing below this point to the pupil circle.
+        // This means any part of the blurred reflex line that falls
+        // outside the pupil is automatically hidden.
+        ctx.beginPath();
+        ctx.arc(CX, CY, PUPIL_R, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Gaussian blur radius (sigma) uses a two-component model:
+        //
+        //  sigma_scatter  = PUPIL_R × |W − K| / W
+        //    Models the retinal blur circle.  When the patient has high
+        //    defocus (K far from W) the retinal image of the sight hole
+        //    is large → wide, dim glow in the pupil.
+        //
+        //  sigma_geometric = d'  (from Eq. 13, in pixels)
+        //    Models the geometric projection of the sight hole.  This
+        //    becomes large near neutralisation (d' → pupil diameter)
+        //    giving the clinically observed wide, bright reflex.
+        //
+        //  We take the larger of the two so that both extremes are
+        //  handled correctly: high Rx (scatter dominates) and near
+        //  reversal (geometric dominates).
+        const avgDefocus      = (Math.abs(r.W - r.Ka) + Math.abs(r.W - r.Ka90)) / 2;
+        const sigma_scatter   = Math.min(PUPIL_R, PUPIL_R * avgDefocus / r.W);
+        const sigma_geometric = Math.min(PUPIL_R, r.d_prime_px);
+        const sigma = Math.max(sigma_scatter, sigma_geometric);
+        ctx.filter = `blur(${sigma.toFixed(1)}px)`;
+
+        // lineWidth is set equal to sigma so the stroke has roughly the
+        // same spatial extent as the blur, keeping peak brightness
+        // proportional to r.lum regardless of how widely the blur spreads.
+        ctx.globalAlpha = Math.min(1.0, r.lum * 1.5);  // lum drives apparent brightness
+        ctx.strokeStyle = '#F5DEB3';                     // warm white (wheat)
+        ctx.lineWidth   = Math.max(5, sigma);
+
+        // Draw a line at orientation β through the computed reflex centre.
+        // The line is drawn long enough that the clip circle determines
+        // the visible endpoints — no manual chord calculation needed.
+        const dx = Math.cos(r.beta);        // unit vector along reflex direction
+        const dy = -Math.sin(r.beta);       // Y inverted for canvas
+        const hl = PUPIL_R + 20;            // half-length (px); clip does the rest
+
+        ctx.beginPath();
+        ctx.moveTo(r.xRef - hl * dx, r.yRef - hl * dy);
+        ctx.lineTo(r.xRef + hl * dx, r.yRef + hl * dy);
+        ctx.stroke();
+
+        // Reset filter and alpha before leaving the save/restore block
+        ctx.filter      = 'none';
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // ── 5. Streak ─────────────────────────────────────────────────────
+    // The streak is a bright rectangle centred on the mouse, rotated to
+    // the current streak axis θ.  It is drawn on top of the iris and
+    // pupil (no clipping) to simulate the illuminating beam on the face.
+    if (st.onCanvas) {
+        ctx.save();
+        ctx.translate(st.mouseX, st.mouseY);
+        ctx.rotate(-theta);   // theta is CCW; canvas rotate() is CW-positive
+
+        // Streak length: spans the full iris width with margin.
+        // Streak width: set by calcStreakFactor() which models the beam
+        //   cross-section at the patient's face based on collar position.
+        //   Wide when divergent (collar down), narrows to ~2 px as the
+        //   focus approaches the patient's cornea (u ≈ 0.078 m), then
+        //   widens again as the beam spreads past its focal point.
+        const sLen = IRIS_R * 2.8;
+        const sf   = calcStreakFactor();
+        const sWid = Math.max(2, Math.min(PUPIL_R * 0.8, PUPIL_R * 0.35 * sf));
+
+        ctx.fillStyle   = '#fff8e1';   // warm white
+        ctx.globalAlpha = 0.30;
+        ctx.fillRect(-sLen / 2, -sWid / 2, sLen, sWid);
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+    }
+
+    // Schedule the next frame — this creates the continuous animation loop
+    requestAnimationFrame(draw);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  STREAK WIDTH FACTOR  — calcStreakFactor()
+//
+//  Returns a dimensionless scale factor for the streak width on the
+//  patient's face.  The physical model is the beam cross-section at
+//  the patient's position, derived by similar triangles:
+//
+//      factor = |x_total| / |v|
+//
+//  where v  = thin-lens image distance (collar model, metres)
+//        x_total = w + v  (effective source distance from patient)
+//
+//  Interpretation of key values:
+//    factor = 1  → parallel beam (plane waves, u = LENS_F)
+//    factor > 1  → diverging beam (collar down, beam has spread further)
+//    factor → 0  → focus at patient's cornea (x_total → 0, u ≈ 0.078 m
+//                  at 67 cm WD) — streak narrows to a filament line
+//    factor > 0  → convergent beam past focus (collar up, u > 0.078 m)
+//                  streak widens again as beam spreads beyond focal point
+//
+//  The rendered width is clamped to [2 px, 0.8 × PUPIL_R]:
+//    minimum 2 px  → always visible as at least a thin filament
+//    maximum       → never wider than most of the pupil
+// ═══════════════════════════════════════════════════════════════════
+function calcStreakFactor() {
+    // Special case: u exactly at focal length → parallel beam → factor = 1
+    if (Math.abs(st.collar_u - LENS_F) < 0.0001) return 1.0;
+    const v       = -(st.collar_u * LENS_F) / (st.collar_u - LENS_F);
+    if (Math.abs(v) < 0.001) return 1.0;   // numerical safety
+    const x_total = 1 / calcW() + v;
+    return Math.abs(x_total) / Math.abs(v);
+}
+
+// ─── Start ────────────────────────────────────────────────────────
+// Kick off the animation loop.  draw() reschedules itself via
+// requestAnimationFrame so this single call runs forever.
+draw();
+</script>
+</body>
+</html>
