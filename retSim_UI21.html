@@ -1,0 +1,3580 @@
+<!--
+================================================================================
+    Retinoscopy Simulator
+    © 2026 Intelligent Education Systems Ltd. All rights reserved.
+    Registered in England and Wales No. 15745491
+
+    This software and its contents, including the physics engine, optical
+    simulation algorithms, user interface, and associated assets, are the
+    proprietary intellectual property of Intelligent Education Systems Ltd.
+
+    Unauthorised copying, modification, distribution, or use of this software
+    in whole or in part, in any form or by any means, without the express
+    prior written permission of Intelligent Education Systems Ltd is strictly
+    prohibited.
+
+    Developed for the Sight Test Tutor platform.
+================================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Retinoscopy Session Report</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #000;
+            overflow: hidden;
+        }
+
+        #scene {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+        }
+
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+            display: block;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 1080px;
+        }
+
+        /* ── Control panel base ───────────────────────────────────── */
+        .ctrl-col {
+            position: absolute;
+            top: 415px;
+            width: 400px;
+        }
+        #ctrl-right { left: 20px; }
+        #ctrl-left  { right: 20px; }
+
+        #ctrl-ret {
+            position: absolute;
+            top: 880px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 740px;
+        }
+
+        .ctrl-panel {
+            background: rgba(17, 17, 17, 0.88);
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 18px 22px;
+            margin-bottom: 14px;
+            font-family: 'Courier New', monospace;
+            color: #ddd;
+        }
+
+        .panel-title {
+            font-size: 20px;
+            color: #777;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 16px;
+        }
+
+        /* ── Step-button rows (SPH / CYL / AXIS) ─────────────────── */
+        .field-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 11px;
+        }
+        .field-row:last-child { margin-bottom: 0; }
+
+        .field-label {
+            font-size: 14px;
+            color: #777;
+            width: 46px;
+            flex-shrink: 0;
+        }
+
+        .step-btn {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 13px;
+            padding: 7px 16px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .step-btn:hover  { background: #2a2a2a; color: #ddd; }
+        .step-btn:active { background: #333; }
+
+        .val-display {
+            font-size: 20px;
+            color: #eee;
+            min-width: 76px;
+            text-align: center;
+            background: #0e0e0e;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            padding: 5px 10px;
+        }
+
+        .field-unit {
+            font-size: 14px;
+            color: #555;
+        }
+
+        /* ── Working distance number input ────────────────────────── */
+        input.wd-input {
+            background: #0e0e0e;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            color: #eee;
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            padding: 5px 10px;
+            width: 80px;
+            text-align: center;
+        }
+        input.wd-input:focus { outline: none; border-color: #444; }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { opacity: 0.3; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        /* ── Retinoscope bottom panel inner layout ────────────────── */
+        .ret-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .ret-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ret-section-label {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* ── Patient Rx read-only display ────────────────────────── */
+        .prx-row {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        .prx-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .prx-col-label {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .prx-val {
+            font-size: 20px;
+            color: #ccc;
+            background: #0e0e0e;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            padding: 5px 10px;
+            min-width: 74px;
+            text-align: center;
+        }
+
+        input.prx-val {
+            font-family: 'Courier New', monospace;
+            width: 90px;
+            -moz-appearance: textfield;
+        }
+        input.prx-val::-webkit-outer-spin-button,
+        input.prx-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input.prx-val:focus { outline: none; border-color: #555; }
+
+        /* ── Vertical collar slider ───────────────────────────────── */
+        .collar-wrap {
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            gap: 5px;
+        }
+
+        .collar-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .collar-end-label {
+            font-size: 14px;
+            color: #555;
+        }
+
+        input.collar-slider {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            writing-mode: vertical-lr;
+            direction: rtl;       /* up = higher value (convergent) */
+            width: 25px;
+            height: 70px;
+            background: transparent;
+            cursor: grab;
+            outline: none;
+        }
+        input.collar-slider:active { cursor: grabbing; }
+
+        input.collar-slider::-webkit-slider-runnable-track {
+            width: 25px;
+            height: 100%;
+            background: #2a2a2a;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        input.collar-slider::-moz-range-track {
+            width: 25px;
+            height: 100%;
+            background: #2a2a2a;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+
+        input.collar-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 31px;
+            height: 18px;
+            margin-left: -3px;
+            background: #888;
+            border: 2px solid #bbb;
+            border-radius: 4px;
+            cursor: grab;
+        }
+        input.collar-slider::-webkit-slider-thumb:active { cursor: grabbing; }
+
+        input.collar-slider::-moz-range-thumb {
+            width: 31px;
+            height: 18px;
+            background: #888;
+            border: 2px solid #bbb;
+            border-radius: 4px;
+            cursor: grab;
+        }
+
+        /* ── Streak axis slider ────────────────────────────────────── */
+        #streak-axis-slider {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 180px;
+            height: 25px;
+            background: transparent;
+            cursor: grab;
+            outline: none;
+        }
+        #streak-axis-slider:active { cursor: grabbing; }
+
+        #streak-axis-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 25px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+        #streak-axis-slider::-moz-range-track {
+            width: 100%;
+            height: 25px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+
+        #streak-axis-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 31px;
+            margin-top: -4px;
+            background: #888;
+            border: 2px solid #bbb;
+            border-radius: 4px;
+            cursor: grab;
+        }
+        #streak-axis-slider::-webkit-slider-thumb:active { cursor: grabbing; }
+
+        #streak-axis-slider::-moz-range-thumb {
+            width: 18px;
+            height: 31px;
+            background: #888;
+            border: 2px solid #bbb;
+            border-radius: 4px;
+            cursor: grab;
+        }
+    #debug-panel { display: none; }
+
+    /* ── LED timer ───────────────────────────────────────────────── */
+    @font-face {
+        font-family: 'DSEG7';
+        src: url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-Regular.woff2') format('woff2');
+        font-weight: normal;
+        font-style: normal;
+    }
+
+    #led-timer {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-family: 'DSEG7', 'Courier New', monospace;
+        font-size: 64px;
+        line-height: 1;
+        padding: 14px 22px 10px 22px;
+        background: #0a0000;
+        border: 2px solid #1a0000;
+        border-radius: 6px;
+        box-shadow: inset 0 0 12px #000, 0 0 6px #000;
+        letter-spacing: 4px;
+        user-select: none;
+        display: inline-block;
+    }
+
+    /* Ghost layer — all segments faintly lit */
+    #led-timer::before {
+        content: '88:88';
+        position: absolute;
+        top: 14px;
+        left: 22px;
+        font-family: 'DSEG7', 'Courier New', monospace;
+        font-size: 64px;
+        letter-spacing: 4px;
+        color: #1a0000;
+        pointer-events: none;
+    }
+
+    /* Active digits */
+    #led-time-display {
+        position: relative;
+        color: #cc1a00;
+        text-shadow:
+            0 0 4px  #cc1a00,
+            0 0 12px #880000,
+            0 0 28px #440000;
+    }
+
+    /* Dimmed state before first randomise */
+    #led-time-display.inactive {
+        color: #1a0000;
+        text-shadow: none;
+    }
+
+    /* ── Dimming ─────────────────────────────────────────────────── */
+    .dimmed {
+        opacity: 0.35 !important;
+        pointer-events: none !important;
+    }
+
+    /* ── Record card ─────────────────────────────────────────────── */
+    #record-card {
+        position: absolute;
+        top: 650px;              /* JS overrides this to align with Retinoscope box */
+        left: 20px;
+        width: 400px;
+        display: none;           /* hidden until Record Rx clicked */
+        background: rgba(17,17,17,0.88);
+        border: 1px solid #555;         /* matches level-btn */
+        border-left-width: 4px;         /* accent colour set dynamically by JS */
+        border-radius: 6px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+        font-family: 'Courier New', monospace;
+        color: #ccc;
+        padding: 14px 16px 22px;
+        box-sizing: border-box;
+    }
+
+    #record-card .rc-title {
+        font-size: 20px;          /* matches .panel-title */
+        color: #ccc;              /* matches Generate Rx text brightness */
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        margin-bottom: 16px;
+    }
+
+    #rc-wd-line {
+        font-size: 16px;
+        color: #888;
+        letter-spacing: 1px;
+        margin-bottom: 14px;
+        margin-top: -10px;    /* tuck closer under the title */
+    }
+
+    /* Column header row — sits on dark background above the input area */
+    #rc-hdr-row {
+        display: grid;
+        grid-template-columns: 28px 1fr 1fr 1fr;
+        margin-bottom: 6px;
+    }
+
+    #rc-hdr-row .rc-header {
+        font-size: 14px;          /* matches .prx-col-label in Right Rx */
+        color: #888;              /* unified with R/L labels */
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-align: center;
+    }
+
+    /* Data row: eye-label column + input grid side by side */
+    #rc-data-row {
+        display: flex;
+        align-items: stretch;
+    }
+
+    /* Eye label column — dark background, vertically centred R/L */
+    #rc-eye-col {
+        width: 28px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .rc-eye-cell {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: bold;
+        color: #888;              /* unified with SPH/CYL/AXIS labels */
+    }
+
+    /* Unified lighter rectangle for inputs only */
+    #rc-input-area {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        background: rgba(255,255,255,0.08);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    /* Input fields */
+    #rc-input-area input.rc-input {
+        background: transparent;
+        border: none;
+        border-left: 1px solid rgba(255,255,255,0.1);
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        color: #fff;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 4px;
+        outline: none;
+    }
+
+    /* SPH column: no left border (it's the first column) */
+    #rc-input-area input.rc-input[data-col="sph"] {
+        border-left: none;
+    }
+
+    /* L row: top border as R/L divider */
+    #rc-input-area input.rc-input.rc-l-row {
+        border-top: 1px solid rgba(255,255,255,0.12);
+    }
+
+    #rc-input-area input.rc-input::placeholder {
+        color: #555;
+    }
+
+    /* Individual cell focus highlight */
+    #rc-input-area input.rc-input:focus {
+        background: rgba(255,255,255,0.06);
+    }
+
+    /* ── Primary action button (Generate Rx / Record Rx / Finished) ── */
+    #btn-finished {
+        position: absolute;
+        bottom: 30px;
+        right: 20px;
+        width: 260px;
+        padding: 14px 0;
+        background: #C8A96E;
+        border: none;
+        border-radius: 999px;
+        color: #1A1A1A;
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        font-weight: bold;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transform-origin: center;
+        transition: all 0.15s ease-out;
+    }
+
+    #btn-finished:hover {
+        background: #D4B87E;
+        transform: scale(1.04);
+    }
+
+    #btn-finished:active {
+        background: #B8995E;
+        transform: scale(1.0);
+        transition: all 0.08s ease-in;
+    }
+
+    #btn-finished.dimmed {
+        opacity: 0.35;
+        pointer-events: none;
+    }
+
+    /* ── Landing page ────────────────────────────────────────────── */
+    #landing-page {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        z-index: 3000;
+        background: #000 url('LandingPage.png') center center / cover no-repeat;
+    }
+
+    #btn-enter {
+        position: absolute;
+        bottom: 30px;
+        right: 20px;
+        width: 260px;
+        padding: 14px 0;
+        background: #C8A96E;
+        border: none;
+        border-radius: 999px;
+        color: #1A1A1A;
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        font-weight: bold;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transform-origin: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease, background 0.15s ease-out, transform 0.15s ease-out;
+    }
+
+    #btn-enter.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    #landing-copyright {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        color: rgba(255,255,255,0.35);
+        letter-spacing: 1px;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
+    #btn-enter:hover {
+        background: #D4B87E;
+        transform: scale(1.04);
+    }
+
+    #btn-enter:active {
+        background: #B8995E;
+        transform: scale(1.0);
+        transition: opacity 0.5s ease, background 0.08s ease-in, transform 0.08s ease-in;
+    }
+
+    /* ── Video intro overlay ─────────────────────────────────────── */
+    #video-overlay {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        background: #000;
+        z-index: 2000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transition: opacity 1.5s ease;
+    }
+
+    #video-overlay.fade-out {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #intro-video {
+        width: 1920px;
+        height: 1080px;
+        object-fit: cover;
+        display: block;
+    }
+
+
+
+    /* ── UI layer — fades in after face reveal ───────────────────── */
+    #ui-layer {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transition: opacity 0.8s ease;
+        pointer-events: none;
+    }
+
+    #ui-layer.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* ── Results card modal ──────────────────────────────────────── */
+    #results-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.75);
+        z-index: 1000;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    #results-overlay.visible { opacity: 1; }
+
+    #results-card {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -48%);
+        width: 680px;
+        background: #111;
+        border: 2px solid #333;   /* accent colour set dynamically */
+        border-radius: 8px;
+        padding: 32px 36px;
+        font-family: 'Courier New', monospace;
+        color: #ddd;
+        opacity: 0;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    #results-card.visible {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+
+    .rc-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .rc-modal-title {
+        font-size: 22px;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        color: #fff;
+    }
+
+    .rc-level-badge {
+        font-size: 14px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid #555;
+        color: #aaa;
+    }
+
+    .rc-divider {
+        border: none;
+        border-top: 1px solid #333;
+        margin: 16px 0;
+    }
+
+    .rc-eye-section { margin-bottom: 8px; }
+
+    .rc-eye-heading {
+        font-size: 14px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #888;
+        margin-bottom: 8px;
+    }
+
+    .rc-rx-line {
+        font-size: 16px;
+        color: #aaa;
+        margin-bottom: 4px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .rc-rx-line.visible { opacity: 1; }
+
+    .rc-rx-value { color: #fff; }
+
+    .rc-score-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .rc-score-row.visible { opacity: 1; }
+
+    .rc-score-label {
+        font-size: 14px;
+        color: #888;
+        width: 50px;
+        flex-shrink: 0;
+    }
+
+    .rc-score-error {
+        font-size: 14px;
+        color: #aaa;
+        width: 60px;
+        flex-shrink: 0;
+        text-align: right;
+    }
+
+    .rc-bar-track {
+        flex: 1;
+        height: 10px;
+        background: #222;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+
+    .rc-bar-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 5px;
+        transition: width 0.5s ease;
+    }
+
+    .rc-score-tag {
+        font-size: 14px;
+        letter-spacing: 1px;
+        width: 54px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .colour-exact  { color: #00C896; }
+    .colour-good   { color: #00C896; }
+    .colour-close  { color: #B8860B; }
+    .colour-review { color: #CC2222; }
+
+    .bg-exact  { background: #00C896; }
+    .bg-good   { background: #00C896; }
+    .bg-close  { background: #B8860B; }
+    .bg-review { background: #CC2222; }
+
+    .rc-summary {
+        font-size: 14px;
+        color: #aaa;
+        margin-bottom: 6px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .rc-summary.visible { opacity: 1; }
+
+    .rc-summary-value {
+        color: #fff;
+        font-size: 18px;
+    }
+
+    .rc-action-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 20px;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        pointer-events: none;
+    }
+
+    .rc-action-row.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .rc-action-btn {
+        flex: 1;
+        padding: 14px 0;
+        background: rgba(17,17,17,0.88);
+        border: 1px solid #555;
+        border-radius: 6px;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 15px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+    }
+
+    .rc-action-btn:hover { color: #fff; border-color: #888; }
+
+    /* ── Session summary modal ───────────────────────────────────── */
+    #summary-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.85);
+        z-index: 1100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #summary-overlay.visible { display: flex; }
+
+    #summary-modal {
+        width: min(900px, 80vw);
+        max-height: 85vh;
+        overflow-y: auto;
+        background: #1a1a1a;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 8px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        padding: 36px 40px;
+        font-family: 'Courier New', monospace;
+        color: #ddd;
+        box-sizing: border-box;
+    }
+
+    /* Header */
+    .sm-title {
+        font-size: 22px;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        margin-bottom: 16px;
+    }
+
+    .sm-divider {
+        border: none;
+        border-top: 1px solid #444;
+        margin: 14px 0;
+    }
+
+    .sm-stats {
+        font-size: 14px;
+        color: #888;
+        letter-spacing: 1px;
+        margin-bottom: 24px;
+    }
+
+    /* Level panels */
+    .sm-level-panel {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-left-width: 4px;
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 16px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .sm-level-panel.visible { opacity: 1; }
+
+    .sm-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .sm-panel-name {
+        font-size: 14px;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+    }
+
+    .sm-panel-cases {
+        font-size: 14px;
+        color: #888;
+    }
+
+    .sm-panel-pct {
+        font-size: 16px;
+        font-weight: bold;
+        min-width: 48px;
+        text-align: right;
+    }
+
+    .sm-panel-pct.good   { color: #00C896; }
+    .sm-panel-pct.ok     { color: #B8860B; }
+    .sm-panel-pct.weak   { color: #CC2222; }
+
+    /* Progress bars */
+    .sm-bar-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .sm-bar-label {
+        font-size: 14px;
+        color: #888;
+        width: 50px;
+        flex-shrink: 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .sm-bar-na {
+        font-size: 14px;
+        color: #555;
+    }
+
+    .sm-bar-track {
+        flex: 1;
+        height: 8px;
+        background: #333;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .sm-bar-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 4px;
+        transition: width 0.6s ease-out;
+    }
+
+    .sm-bar-fill.good { background: #00C896; }
+    .sm-bar-fill.ok   { background: #B8860B; }
+    .sm-bar-fill.weak { background: #CC2222; }
+
+    .sm-bar-pct {
+        font-size: 14px;
+        color: #fff;
+        width: 45px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    /* Insights panel */
+    .sm-insights-panel {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 16px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .sm-insights-panel.visible { opacity: 1; }
+
+    .sm-insights-title {
+        font-size: 14px;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        margin-bottom: 12px;
+    }
+
+    .sm-insight-line {
+        font-size: 14px;
+        margin-bottom: 8px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .sm-insight-icon { font-size: 14px; }
+    .sm-insight-icon.strength   { color: #00C896; }
+    .sm-insight-icon.improvement{ color: #B8860B; }
+    .sm-insight-icon.suggestion { color: #1A6B8A; }
+
+    /* Button row */
+    .sm-button-row {
+        display: flex;
+        gap: 16px;
+        margin-top: 24px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+    }
+
+    .sm-button-row.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .sm-btn {
+        flex: 1;
+        padding: 14px 0;
+        background: rgba(17,17,17,0.88);
+        border: 1px solid #555;
+        border-radius: 6px;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 15px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+    }
+
+    .sm-btn:hover { color: #fff; border-color: #888; }
+
+    /* ── Difficulty level buttons ────────────────────────────────── */
+    #level-select-title {
+        position: absolute;
+        top: 78px;
+        left: 20px;
+        width: 400px;
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        color: #ddd;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+    }
+
+    #level-buttons {
+        position: absolute;
+        top: 38px;
+        left: 20px;
+        width: 400px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .level-btn {
+        width: 100%;
+        padding: 12px 14px;
+        background: rgba(17, 17, 17, 0.88);
+        border: 1px solid #555;
+        border-left-width: 4px;
+        border-radius: 6px;
+        color: #ccc;
+        font-family: 'Courier New', monospace;
+        font-size: 18px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        text-align: left;
+        cursor: pointer;
+        opacity: 1.0;
+        transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+        box-sizing: border-box;
+    }
+
+    .level-btn:hover {
+        color: #fff;
+        border-color: #888;
+    }
+
+    .level-btn.selected {
+        opacity: 1.0;
+        color: #fff;
+        border-top-color: #666;
+        border-right-color: #666;
+        border-bottom-color: #666;
+        /* border-left-color set inline per accent colour */
+    }
+
+    .level-btn.unselected {
+        opacity: 0.35;
+        color: #666;
+        border-color: #2a2a2a;
+    }
+    /* ── Print stylesheet — A4 portrait ─────────────────────────── */
+    @media print {
+
+        @page {
+            size: A4 portrait;
+            margin: 20mm 20mm 20mm 20mm;
+        }
+
+        /* Hide everything except the print summary */
+        body, body * { visibility: hidden; }
+        #scene { display: none !important; }
+
+        #summary-print-content,
+        #summary-print-content * { visibility: visible; }
+
+        /* Show the print content div (hidden on screen) */
+        #summary-print-content {
+            display: block !important;
+            width: 170mm;
+            font-family: 'Courier New', monospace;
+            font-size: 11pt;
+            color: #000;
+            background: #fff;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .print-title {
+            font-size: 16pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4pt;
+        }
+
+        .print-divider {
+            border: none;
+            border-top: 1pt solid #333;
+            margin: 8pt 0;
+        }
+
+        .print-student-line {
+            font-size: 10pt;
+            color: #333;
+            margin-bottom: 4pt;
+        }
+
+        .print-date {
+            font-size: 10pt;
+            color: #333;
+            margin-bottom: 8pt;
+        }
+
+        .print-stats {
+            font-size: 10pt;
+            color: #555;
+            margin-bottom: 12pt;
+        }
+
+        .print-level-panel {
+            border: 1pt solid #ccc;
+            border-left-width: 4pt;
+            padding: 8pt 10pt;
+            margin-bottom: 8pt;
+            break-inside: avoid;
+            page-break-inside: avoid;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .print-level-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 4pt;
+        }
+
+        .print-level-name {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .print-level-score {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .print-bar-row {
+            display: flex;
+            align-items: center;
+            margin-top: 4pt;
+            gap: 6pt;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .print-bar-label {
+            width: 30pt;
+            font-size: 9pt;
+            color: #555;
+        }
+
+        .print-bar-container {
+            flex: 1;
+            min-width: 0;
+            height: 6pt;
+            background: #eee;
+            border-radius: 3pt;
+            overflow: hidden;
+        }
+
+        .print-bar-fill {
+            height: 100%;
+            background: #333;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .print-bar-pct {
+            width: 28pt;
+            font-size: 9pt;
+            text-align: right;
+        }
+
+        .print-insights-panel {
+            border: 1pt solid #ccc;
+            padding: 8pt 10pt;
+            margin-top: 8pt;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .print-insights-title {
+            font-size: 10pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 4pt;
+        }
+
+        .print-insight-line {
+            font-size: 10pt;
+            margin-bottom: 3pt;
+        }
+
+        .print-footer {
+            margin-top: 16pt;
+            font-size: 8pt;
+            color: #888;
+            border-top: 1pt solid #ccc;
+            padding-top: 6pt;
+        }
+
+        .sm-button-row { display: none !important; }
+    }
+
+    </style>
+</head>
+<body>
+
+<div id="scene">
+    <img id="background" src="RetSim_HeadV4.png" alt="">
+
+    <!-- ── Landing page — shown on first load ─────────────────────── -->
+    <div id="landing-page">
+        <button id="btn-enter" onclick="enterSim()">Start</button>
+        <div id="landing-copyright">© 2026 Intelligent Education Systems Ltd. All rights reserved.</div>
+    </div>
+
+    <!-- ── Video intro overlay ────────────────────────────────────── -->
+    <div id="video-overlay">
+        <video id="intro-video" muted playsinline preload="auto">
+            <source src="RetSimIntroVid.webm" type="video/webm">
+            <source src="RetSimIntroVid.mp4"  type="video/mp4">
+        </video>
+    </div>
+
+
+    <!-- ── UI layer (hidden until face reveal completes) ────────── -->
+    <div id="ui-layer">
+    <canvas id="canvas" width="1920" height="1080"></canvas>
+
+    <!-- ── LED timer ─────────────────────────────────────────────── -->
+    <div id="led-timer">
+        <span id="led-time-display" class="inactive">00:00</span>
+    </div>
+
+    <!-- ── Select level title + buttons ─────────────────────────── -->
+    <div id="level-buttons"></div>
+
+    <!-- ── RIGHT EYE controls (left panel) ─────────────────────── -->
+    <div class="ctrl-col dimmed" id="ctrl-right">
+
+        <div class="ctrl-panel">
+            <div class="panel-title">Trial lenses</div>
+            <div class="field-row">
+                <span class="field-label">SPH</span>
+                <button class="step-btn" onclick="step('right','trialRx','S',-0.25)">&#9660;</button>
+                <span class="val-display" id="r-trx-S">+0.00</span>
+                <button class="step-btn" onclick="step('right','trialRx','S',+0.25)">&#9650;</button>
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">CYL</span>
+                <button class="step-btn" onclick="step('right','trialRx','C',-0.25)">&#9660;</button>
+                <span class="val-display" id="r-trx-C">+0.00</span>
+                <button class="step-btn" onclick="step('right','trialRx','C',+0.25)">&#9650;</button>
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">AXIS</span>
+                <button class="step-btn" onmousedown="startHold('right','trialRx','axis',-1)" onmouseup="stopHold()" onmouseleave="stopHold()">&#9660;</button>
+                <span class="val-display" id="r-trx-axis">0</span>
+                <button class="step-btn" onmousedown="startHold('right','trialRx','axis',+1)" onmouseup="stopHold()" onmouseleave="stopHold()">&#9650;</button>
+                <span class="field-unit">°</span>
+            </div>
+        </div>
+
+        <div class="ctrl-panel" id="debug-panel">
+            <div class="panel-title">Debug — Right Eye Physics</div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">W</span>
+                <span class="val-display" id="dbg-W" style="min-width:80px">—</span>
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">Ka</span>
+                <span class="val-display" id="dbg-Ka" style="min-width:80px">—</span>
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">Ka+90</span>
+                <span class="val-display" id="dbg-Ka90" style="min-width:80px">—</span>
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">β angle</span>
+                <span class="val-display" id="dbg-beta" style="min-width:80px">—</span>
+                <span class="field-unit">°</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">Gain</span>
+                <span class="val-display" id="dbg-gamma" style="min-width:80px">—</span>
+                <span class="field-unit">mm/mm</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">Reflex W</span>
+                <span class="val-display" id="dbg-rw" style="min-width:80px">—</span>
+                <span class="field-unit">× r</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">α</span>
+                <span class="val-display" id="dbg-alpha" style="min-width:80px">—</span>
+                <span class="field-unit">°</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">s_m</span>
+                <span class="val-display" id="dbg-sm" style="min-width:80px">—</span>
+                <span class="field-unit">mm</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">p1</span>
+                <span class="val-display" id="dbg-p1" style="min-width:80px">—</span>
+                <span class="field-unit">mm</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">q1</span>
+                <span class="val-display" id="dbg-q1" style="min-width:80px">—</span>
+                <span class="field-unit">mm</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">u1</span>
+                <span class="val-display" id="dbg-u1" style="min-width:80px">—</span>
+                <span class="field-unit">mm</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label" style="width:80px">v1</span>
+                <span class="val-display" id="dbg-v1" style="min-width:80px">—</span>
+                <span class="field-unit">mm</span>
+            </div>
+        </div>
+
+    </div><!-- /ctrl-right -->
+
+    <!-- ── LEFT EYE controls (right panel) ──────────────────────── -->
+    <div class="ctrl-col dimmed" id="ctrl-left">
+
+        <div class="ctrl-panel">
+            <div class="panel-title">Trial lenses</div>
+            <div class="field-row">
+                <span class="field-label">SPH</span>
+                <button class="step-btn" onclick="step('left','trialRx','S',-0.25)">&#9660;</button>
+                <span class="val-display" id="l-trx-S">+0.00</span>
+                <button class="step-btn" onclick="step('left','trialRx','S',+0.25)">&#9650;</button>
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">CYL</span>
+                <button class="step-btn" onclick="step('left','trialRx','C',-0.25)">&#9660;</button>
+                <span class="val-display" id="l-trx-C">+0.00</span>
+                <button class="step-btn" onclick="step('left','trialRx','C',+0.25)">&#9650;</button>
+                <span class="field-unit">D</span>
+            </div>
+            <div class="field-row">
+                <span class="field-label">AXIS</span>
+                <button class="step-btn" onmousedown="startHold('left','trialRx','axis',-1)" onmouseup="stopHold()" onmouseleave="stopHold()">&#9660;</button>
+                <span class="val-display" id="l-trx-axis">0</span>
+                <button class="step-btn" onmousedown="startHold('left','trialRx','axis',+1)" onmouseup="stopHold()" onmouseleave="stopHold()">&#9650;</button>
+                <span class="field-unit">°</span>
+            </div>
+        </div>
+
+    </div><!-- /ctrl-left -->
+
+    <!-- ── Unified action button (Generate Rx → Record Rx → Finished) ── -->
+    <button id="btn-finished"
+            onclick="randomiseRx()"
+            class="dimmed">
+        Generate Rx
+    </button>
+
+    <!-- ── Record card ───────────────────────────────────────────── -->
+    <div id="record-card">
+        <div class="rc-title">Record Patient Rx</div>
+        <div id="rc-wd-line"></div>
+        <!-- Column headers on dark background -->
+        <div id="rc-hdr-row">
+            <div></div>
+            <div class="rc-header" data-col="sph">SPH</div>
+            <div class="rc-header" data-col="cyl">CYL</div>
+            <div class="rc-header" data-col="axis">AXIS</div>
+        </div>
+        <!-- Eye labels + input grid -->
+        <div id="rc-data-row">
+            <div id="rc-eye-col">
+                <div class="rc-eye-cell">R</div>
+                <div class="rc-eye-cell">L</div>
+            </div>
+            <div id="rc-input-area">
+                <input class="rc-input" type="text" id="rc-r-S"    data-col="sph"  placeholder="#.##" autocomplete="off">
+                <input class="rc-input" type="text" id="rc-r-C"    data-col="cyl"  placeholder="#.##" autocomplete="off">
+                <input class="rc-input" type="text" id="rc-r-axis" data-col="axis" placeholder="###"  autocomplete="off">
+                <input class="rc-input rc-l-row" type="text" id="rc-l-S"    data-col="sph"  placeholder="#.##" autocomplete="off">
+                <input class="rc-input rc-l-row" type="text" id="rc-l-C"    data-col="cyl"  placeholder="#.##" autocomplete="off">
+                <input class="rc-input rc-l-row" type="text" id="rc-l-axis" data-col="axis" placeholder="###"  autocomplete="off">
+            </div>
+        </div>
+    </div>
+
+    <!-- ── RETINOSCOPE controls (bottom centre) ──────────────────── -->
+    <div id="ctrl-ret" class="dimmed">
+        <div class="ctrl-panel">
+            <div class="panel-title">Retinoscope</div>
+            <div class="ret-row">
+
+                <!-- Working distance -->
+                <div class="ret-section">
+                    <span class="ret-section-label">Working Distance</span>
+                    <div class="field-row" style="margin-bottom:0;">
+                        <input class="wd-input" type="number" id="wd-input"
+                               value="67" min="30" max="120" step="1">
+                        <span class="field-unit">cm</span>
+                    </div>
+                </div>
+
+                <!-- Streak axis -->
+                <div class="ret-section">
+                    <span class="ret-section-label">Streak Axis</span>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                        <span class="val-display" id="streak-axis-display">90</span>
+                        <span class="field-unit">°</span>
+                    </div>
+                    <input type="range" id="streak-axis-slider"
+                           min="0" max="180" step="1" value="90">
+                </div>
+
+                <!-- Collar -->
+                <div class="ret-section">
+                    <span class="ret-section-label">Collar</span>
+                    <div class="collar-wrap">
+                        <input class="collar-slider" type="range"
+                               id="collar-slider"
+                               min="0" max="1" step="0.01" value="0">
+                        <div class="collar-labels">
+                            <span class="collar-end-label">up</span>
+                            <span class="collar-end-label">down</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /ret-row -->
+        </div>
+    </div><!-- /ctrl-ret -->
+
+    <!-- ── Results card modal ────────────────────────────────────── -->
+    <div id="results-overlay">
+        <div id="results-card">
+
+            <!-- Header -->
+            <div class="rc-modal-header">
+                <div class="rc-modal-title">Case Complete</div>
+                <div class="rc-level-badge" id="rc-level-badge">—</div>
+            </div>
+            <hr class="rc-divider">
+
+            <!-- Right eye -->
+            <div class="rc-eye-section">
+                <div class="rc-eye-heading">Right Eye</div>
+                <div class="rc-rx-line" id="rc-right-patient">Patient Rx: &nbsp;<span class="rc-rx-value" id="rc-right-patient-val">—</span></div>
+                <div class="rc-rx-line" id="rc-right-student">Your result: <span class="rc-rx-value" id="rc-right-student-val">—</span></div>
+                <div style="margin-top:10px;">
+                    <div class="rc-score-row" id="rc-right-sph-row">
+                        <span class="rc-score-label">SPH</span>
+                        <span class="rc-score-error" id="rc-right-sph-err">—</span>
+                        <div class="rc-bar-track"><div class="rc-bar-fill" id="rc-right-sph-bar"></div></div>
+                        <span class="rc-score-tag" id="rc-right-sph-tag">—</span>
+                    </div>
+                    <div class="rc-score-row" id="rc-right-cyl-row">
+                        <span class="rc-score-label">CYL</span>
+                        <span class="rc-score-error" id="rc-right-cyl-err">—</span>
+                        <div class="rc-bar-track"><div class="rc-bar-fill" id="rc-right-cyl-bar"></div></div>
+                        <span class="rc-score-tag" id="rc-right-cyl-tag">—</span>
+                    </div>
+                    <div class="rc-score-row" id="rc-right-axis-row">
+                        <span class="rc-score-label">AXIS</span>
+                        <span class="rc-score-error" id="rc-right-axis-err">—</span>
+                        <div class="rc-bar-track"><div class="rc-bar-fill" id="rc-right-axis-bar"></div></div>
+                        <span class="rc-score-tag" id="rc-right-axis-tag">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="rc-divider">
+
+            <!-- Left eye -->
+            <div class="rc-eye-section">
+                <div class="rc-eye-heading">Left Eye</div>
+                <div class="rc-rx-line" id="rc-left-patient">Patient Rx: &nbsp;<span class="rc-rx-value" id="rc-left-patient-val">—</span></div>
+                <div class="rc-rx-line" id="rc-left-student">Your result: <span class="rc-rx-value" id="rc-left-student-val">—</span></div>
+                <div style="margin-top:10px;">
+                    <div class="rc-score-row" id="rc-left-sph-row">
+                        <span class="rc-score-label">SPH</span>
+                        <span class="rc-score-error" id="rc-left-sph-err">—</span>
+                        <div class="rc-bar-track"><div class="rc-bar-fill" id="rc-left-sph-bar"></div></div>
+                        <span class="rc-score-tag" id="rc-left-sph-tag">—</span>
+                    </div>
+                    <div class="rc-score-row" id="rc-left-cyl-row">
+                        <span class="rc-score-label">CYL</span>
+                        <span class="rc-score-error" id="rc-left-cyl-err">—</span>
+                        <div class="rc-bar-track"><div class="rc-bar-fill" id="rc-left-cyl-bar"></div></div>
+                        <span class="rc-score-tag" id="rc-left-cyl-tag">—</span>
+                    </div>
+                    <div class="rc-score-row" id="rc-left-axis-row">
+                        <span class="rc-score-label">AXIS</span>
+                        <span class="rc-score-error" id="rc-left-axis-err">—</span>
+                        <div class="rc-bar-track"><div class="rc-bar-fill" id="rc-left-axis-bar"></div></div>
+                        <span class="rc-score-tag" id="rc-left-axis-tag">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="rc-divider">
+
+            <!-- Summary -->
+            <div class="rc-summary" id="rc-summary-accuracy">
+                Overall Accuracy &nbsp;<span class="rc-summary-value" id="rc-accuracy-val">—</span>
+            </div>
+            <div class="rc-summary" id="rc-summary-time">
+                Time &nbsp;<span class="rc-summary-value" id="rc-time-val">—</span>
+            </div>
+
+            <hr class="rc-divider">
+
+            <!-- Action buttons -->
+            <div class="rc-action-row" id="rc-action-row">
+                <button class="rc-action-btn" onclick="newPatient()">New Patient</button>
+                <button class="rc-action-btn" onclick="endSession()">End Session</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ── Session summary modal ─────────────────────────────────── -->
+    <div id="summary-overlay">
+        <div id="summary-modal">
+
+            <!-- Header -->
+            <div class="sm-title">Retinoscopy Session Report</div>
+            <hr class="sm-divider">
+            <div class="sm-stats" id="sm-stats"></div>
+
+            <!-- Level panels — populated dynamically -->
+            <div id="sm-level-panels"></div>
+
+            <!-- Insights panel — populated dynamically -->
+            <div class="sm-insights-panel" id="sm-insights-panel">
+                <div class="sm-insights-title">Insights</div>
+                <div id="sm-insights-content"></div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="sm-button-row" id="sm-button-row">
+                <button class="sm-btn" onclick="handlePrint()">Print / Save PDF</button>
+                <button class="sm-btn" onclick="handleNewSession()">New Session</button>
+                <button class="sm-btn" onclick="handleExit()">Exit</button>
+            </div>
+
+        </div>
+    </div>
+
+    </div><!-- /ui-layer -->
+
+</div><!-- /scene -->
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+//  DIFFICULTY CONFIG — loaded from difficulty_config.json at startup
+// ═══════════════════════════════════════════════════════════════════
+let DIFFICULTY_CONFIG = null;   // array of level objects once loaded
+let activeLevelId     = null;   // id of currently selected level (null = none)
+
+// ═══════════════════════════════════════════════════════════════════
+//  GEOMETRY CONSTANTS — UI_SPECIFICATION_v2.md Section 2
+//  Pixel coordinates measured in Fiji at 1920×1080.
+// ═══════════════════════════════════════════════════════════════════
+
+const PUPIL = {
+    right: { x: 832,  y: 427, r: 15 },
+    left:  { x: 1088, y: 425, r: 15 }
+};
+
+// Active zone boundaries — invisible hit regions for eye detection
+const ZONE = {
+    right: { x1: 640, x2: 960,  y1: 300, y2: 550 },
+    left:  { x1: 960, x2: 1270, y1: 300, y2: 550 }
+};
+
+// Trial frame aperture centres and radii (measured in Fiji at 1920×1080)
+const FRAME = {
+    right: { x: 831,  y: 441, outerR: 75, innerR: 47 },
+    left:  { x: 1091, y: 438, outerR: 75, innerR: 47 }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  TUNABLE PARAMETERS
+//  Adjust these to calibrate the simulator against a real instrument.
+//  All other rendering constants are derived from these values.
+// ═══════════════════════════════════════════════════════════════════
+
+const CFG = {
+
+    // ── Reflex width ──────────────────────────────────────────────
+    // Overall scale factor applied to the rendered reflex short axis.
+    // Increase to make the reflex wider in all conditions.
+    reflexWidthScale: 1.50,
+
+    // Maximum reflex width expressed as multiples of the pupil radius.
+    // Prevents the reflex from spilling beyond the pupil near neutralisation.
+    reflexWidthMax: 9,
+
+    // Minimum reflex aspect ratio (long axis ÷ short axis).
+    // Stops the reflex collapsing to a circle; keeps a streak-like shape even
+    // for a plano eye where the optical length would otherwise be very small.
+    reflexMinAR: 5,
+
+    // ── Reflex asymmetry (with vs. against movement) ──────────────
+    // Against-movement residual errors produce a wider reflex than
+    // with-movement errors of the same magnitude, matching clinical observation.
+    // This factor is applied to the against-movement residual to inflate reflex width:
+    // smaller values → greater asymmetry (wider against, narrower with).
+    // 1.0 = symmetric; 0.333 ≈ against-movement reflex ~3× wider than with.
+    reflexAsymmetryFactor: 1 / 3,
+
+    // ── Reflex speed approaching neutralisation ───────────────────
+    // The diameter of the retinoscope sight-hole (metres). A larger value
+    // gives a wider reflex at all residual errors and makes the reflex speed
+    // increase more steeply as it approaches neutralisation.
+    sightHoleDiameter: 0.0015,
+
+    // ── Brightness — maximum ──────────────────────────────────────
+    // Scales the peak brightness of the reflex (applied as canvas globalAlpha).
+    // 1.0 = full brightness; reduce to dim the reflex across all conditions.
+    brightnessMax: 0.9,
+
+    // ── Brightness — drop-off rate away from neutralisation ───────
+    // Exponent inside the Lorentzian denominator. Higher values make brightness
+    // fall more sharply as residual error increases (steeper roll-off).
+    brightnessLorentzPower: 3,
+
+    // Outer exponent applied to the Lorentzian result. Values below 1.0
+    // compress the brightness range, keeping the reflex visible over a wider
+    // range of residual errors. Values above 1.0 accelerate the drop-off.
+    brightnessLorentzShape: 0.30,
+
+    // ── Brightness — collar coupling ──────────────────────────────
+    // Controls how much the collar position damps reflex brightness independently
+    // of residual error. Higher k = stronger dimming when the streak is defocused
+    // on the face (collar away from focal position).
+    collarBrightnessK: 0.15,
+
+    // ── Reflex texture softness ───────────────────────────────────
+    // Standard deviation of the Gaussian used for the reflex cross-section texture.
+    // Smaller sigma = sharper-edged reflex; larger sigma = softer, more diffuse.
+    // Value is expressed as a fraction of the texture half-height (0–1).
+    reflexGaussianSigma: 0.35,
+
+    // ── Streak blur on face ───────────────────────────────────────
+    // The streak drawn on the patient's face is blurred by this factor × streak
+    // pixel width. Wider streaks get more blur; narrow streaks stay sharp.
+    // Set to 0 to disable blur entirely.
+    streakFaceBlurFactor: 0.03,
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  PHYSICS CONSTANTS  (fixed — not adjustable by the student)
+// ═══════════════════════════════════════════════════════════════════
+
+const D_HOLE    = CFG.sightHoleDiameter;  // retinoscope sight-hole diameter (m)
+const PUPIL_R_M = 0.004;    // physical pupil radius (m)
+const LENS_F    = 0.0705;   // collar condensing lens focal length (m)
+                            // Calibrated: v=+0.70m at collar_u=0.064 → LENS_F=0.0705m
+
+// SCALE: metres per pixel at the pupil plane.
+// Both pupils have r = 15 px representing PUPIL_R_M = 0.004 m.
+// Declared as let so it recalculates when pupil size changes between levels.
+let SCALE = PUPIL_R_M / PUPIL.right.r;   // 2.667 × 10⁻⁴ m/px
+
+// ═══════════════════════════════════════════════════════════════════
+//  STATE OBJECT
+//  Left eye: +1.75 DS test prescription → "with" movement at 67 cm.
+//  Right eye: no physics yet (plain black pupil).
+// ═══════════════════════════════════════════════════════════════════
+// Debug values — populated by computeEyeFrame for the right eye each frame
+const dbg = { active: false, W: 0, Ka: 0, Ka90: 0, beta: 0, Gamma: 0, reflexWidth: 0 };
+
+
+// ── Session data — accumulates across all cases in one session ──────
+const sessionData = {
+    startTime:  Date.now(),
+    returnUrl:  null,   // reserved for future Sight Test Tutor integration
+    cases:      []      // one object pushed per completed case
+};
+
+const state = {
+    right: {
+        patientRx: { S:  0.00, C:  0.00, axis:  0 },
+        trialRx:   { S:  0.00, C:  0.00, axis:  0 }
+    },
+    left: {
+        patientRx: { S:  0.00, C: 0.00, axis: 0 },   // 0.00 DS → with movement (emmetrope at 67 cm)
+        trialRx:   { S:  0.00, C:  0.00, axis:  0 }
+    },
+    shared: {
+        workingDistanceCm:  67,
+        streakAxisDeg:      90,
+        collarPosition:     0.0,   // 0.0 = down (divergent), 1.0 = up (convergent)
+        difficultyLevel:    null,  // null until a level is selected
+        activeLevelConfig:  null,  // full config object for the active level
+        sessionActive:      false, // true after Randomise is clicked
+        recordCardVisible:  false  // true after Record Rx is clicked
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  MOUSE TRACKING
+// ═══════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+const mouse = { x: -1, y: -1 };
+
+canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = (e.clientX - rect.left) * (canvas.width  / rect.width);
+    mouse.y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+});
+
+canvas.addEventListener('mouseleave', () => {
+    mouse.x = -1;
+    mouse.y = -1;
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  ACTIVE EYE DETECTION — spec Section 3
+// ═══════════════════════════════════════════════════════════════════
+function getActiveEye(mx, my) {
+    if (mx >= ZONE.right.x1 && mx < ZONE.right.x2 &&
+        my >= ZONE.right.y1 && my < ZONE.right.y2) return 'right';
+    if (mx >= ZONE.left.x1  && mx < ZONE.left.x2  &&
+        my >= ZONE.left.y1  && my < ZONE.left.y2)  return 'left';
+    return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VERGENCE HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+function calcW(wdCm) { return 100 / wdCm; }
+
+function calcX(W, collar_u) {
+    if (Math.abs(collar_u - LENS_F) < 0.0001) return 0;
+    const v       = -(collar_u * LENS_F) / (collar_u - LENS_F);
+    const x_total = 1 / W + v;
+    if (Math.abs(x_total) < 0.005) return x_total >= 0 ? 200 : -200;
+    return 1 / x_total;
+}
+
+// Streak width factor: |x_total|/|v| — beam cross-section at patient's face.
+// Returns 1 for a parallel beam, >1 for divergent, →0 as focus approaches face.
+function calcStreakFactor(W, collar_u) {
+    if (Math.abs(collar_u - LENS_F) < 0.0001) return 1.0;
+    const v       = -(collar_u * LENS_F) / (collar_u - LENS_F);
+    if (Math.abs(v) < 0.001) return 1.0;
+    const x_total = 1 / W + v;
+    return Math.abs(x_total) / Math.abs(v);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  KEATING (1980) TRIAL LENS RESIDUAL  — power matrix method
+// ═══════════════════════════════════════════════════════════════════
+
+function spherocylToMatrix(S, C, axis) {
+    const th = axis * Math.PI / 180;
+    const s  = Math.sin(th), c = Math.cos(th);
+    return { f11: S + C*s*s, f12: -C*s*c, f22: S + C*c*c };
+}
+
+function matrixToSpherocyl(f11, f12, f22) {
+    const EPS  = 1e-6;
+    const t    = f11 + f22;
+    const d    = f11 * f22 - f12 * f12;
+    const disc = t * t - 4 * d;
+    const Ce   = -Math.sqrt(Math.max(disc, 0));
+    const Se   = (t - Ce) / 2;
+    let axisDeg = 0;
+    if (Math.abs(Ce) < EPS) {
+        axisDeg = 0;
+    } else if (Math.abs(f12) < EPS) {
+        axisDeg = (f11 <= f22) ? 90 : 0;
+    } else {
+        let axisRad = Math.atan((Se - f11) / f12);
+        if (axisRad < 0) axisRad += Math.PI;
+        axisDeg = axisRad * 180 / Math.PI;
+    }
+    return { S: Se, C: Ce, axis: Math.round(axisDeg) };
+}
+
+function computeResidual(patientRx, trialRx) {
+    const Fp = spherocylToMatrix(patientRx.S, patientRx.C, patientRx.axis);
+    const Ft = spherocylToMatrix(trialRx.S,   trialRx.C,   trialRx.axis);
+    return matrixToSpherocyl(Fp.f11-Ft.f11, Fp.f12-Ft.f12, Fp.f22-Ft.f22);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PHYSICS ENGINE — computeEyeFrame(eye, mx, my)
+//
+//  Smith & Haymes (2003) equations for one eye.
+//  Returns normalised outputs used by the renderer.
+// ═══════════════════════════════════════════════════════════════════
+function computeEyeFrame(eye, mx, my) {
+    const p  = PUPIL[eye];
+    const sh = state.shared;
+
+    const collar_u = 0.064 + sh.collarPosition * (0.1088 - 0.064);
+    const W        = calcW(sh.workingDistanceCm);
+    const X_SRC    = calcX(W, collar_u);
+    const sf       = calcStreakFactor(W, collar_u);  // 0 at reversal (streak = line on face), ~1 at focal length, ~1.9 at collar down
+
+    const residual = computeResidual(state[eye].patientRx, state[eye].trialRx);
+    const Ka   = -residual.S;
+    const Ka90 = -(residual.S + residual.C);
+    const alpha = residual.axis * Math.PI / 180;
+    const theta = sh.streakAxisDeg * Math.PI / 180;
+
+    // Mouse offset from pupil centre in metres (canvas Y inverted)
+    const u_m =  (mx - p.x) * SCALE;
+    const v_m = -(my - p.y) * SCALE;
+
+    // Perpendicular streak offset s_m
+    const s_m = u_m * Math.sin(theta) - v_m * Math.cos(theta);
+
+    // No reflex if streak (including its rendered half-width) misses the pupil entirely.
+    // hw_m matches the rendered streak width formula in renderFrame() exactly.
+    const sf_max  = calcStreakFactor(W, 0.064);           // sf at collar fully down
+    const sWid_px = Math.max(1, 45 * sf / sf_max);        // rendered streak width in px
+    const hw_m    = (sWid_px / 2) * SCALE;                // convert to metres
+    if (Math.abs(s_m) >= PUPIL_R_M + hw_m) return null;
+
+    // Anisotropy ratio Γ  (Eq. 9)
+    const dKa   = W - Ka;
+    const dKa90 = W - Ka90;
+    const Gamma = Math.abs(dKa90) < 1e-9
+        ? 1e9 * Math.sign(dKa)
+        : dKa / dKa90;
+
+    // Reflex orientation β  (Eq. 12)
+    const beta = alpha + Math.atan(Gamma * Math.tan(theta - alpha));
+
+    // Reflex position  (Eq. 25b, corrected)
+    const NEU   = 0.03;
+    const WmX   = W - X_SRC;
+    function effD(d) {
+        if (Math.abs(d) >= NEU) return d;
+        return (d === 0 ? (Math.random() < 0.5 ? 1 : -1) : Math.sign(d)) * NEU;
+    }
+    const p1 =  s_m * WmX * Math.sin(theta - alpha) / effD(dKa);
+    const q1 = -s_m * WmX * Math.cos(theta - alpha) / effD(dKa90);
+
+    // Rotate reflex centre back to screen frame
+    const u1 =  p1 * Math.cos(alpha) - q1 * Math.sin(alpha);
+    const v1 =  p1 * Math.sin(alpha) + q1 * Math.cos(alpha);
+
+    // Reflex width d'  (Eq. 13) — angle-dependent.
+    // K_perp is the effective power perpendicular to the streak, which determines
+    // how wide the reflex appears in that direction.
+    // K_perp = Ka·sin²(θ−α) + Ka90·cos²(θ−α)
+    // This correctly gives d'→∞ only when the streak is measuring the neutralised meridian.
+    const sinSq  = Math.pow(Math.sin(theta - alpha), 2);
+    const cosSq  = Math.pow(Math.cos(theta - alpha), 2);
+    const K_perp = Ka * sinSq + Ka90 * cosSq;
+    const dKperp = W - K_perp;
+    // Asymmetric width scaling: against movement (dKperp < 0) produces a wider reflex than
+    // with movement (dKperp > 0) for equal residual error magnitudes, matching clinical observation.
+    // The factor 1/3 compresses the effective dK for against → 3× wider reflex. Tune to match instrument.
+    const asym       = dKperp < 0 ? CFG.reflexAsymmetryFactor : 1.0;
+    const effDKperp  = dKperp * asym;
+    const d_prime_px = (Math.abs(effDKperp) < 1e-9 ? Infinity : Math.abs(D_HOLE * W / effDKperp)) / SCALE;
+
+    // Brightness  (Eq. 15) — steepened falloff × collar scaling
+    // Residual term: (1/(1+|dKa|^5))^0.30 — peaks at neutralisation, falls with residual error.
+    // Collar term:   1/(1+k·sf²)          — peaks at sf=0 (streak focused as line on face),
+    //                                        falls as streak widens either side of that point.
+    const brightness_residual = Math.pow(
+        Math.max(1 / (1 + Math.pow(Math.abs(dKa),   CFG.brightnessLorentzPower)),
+                 1 / (1 + Math.pow(Math.abs(dKa90), CFG.brightnessLorentzPower))), CFG.brightnessLorentzShape
+    );
+    const g_collar  = 1 / (1 + CFG.collarBrightnessK * sf * sf);
+    const brightness = brightness_residual * g_collar;
+
+    // Normalised reflex width (short axis, perpendicular to streak) — K_perp drives this.
+    // Normalised reflex length (long axis, along streak) — K_parallel drives this.
+    // Both capped at 5 (= 5 pupil radii) to prevent inf/NaN.
+    const avgDefocus      = (Math.abs(dKa) + Math.abs(dKa90)) / 2;
+    const sigma_scatter   = Math.min(p.r, p.r * avgDefocus / W);
+    const sigma_geometric = d_prime_px;
+    const reflexWidth     = Math.min(CFG.reflexWidthMax, Math.max(sigma_scatter, sigma_geometric) / p.r);
+
+    const K_parallel   = Ka * cosSq + Ka90 * sinSq;   // power along streak direction
+    const dKparallel   = W - K_parallel;
+    const d_long_px    = (Math.abs(dKparallel) < 1e-9 ? Infinity : Math.abs(D_HOLE * W / dKparallel)) / SCALE;
+    const reflexLength = Math.min(5, Math.max(sigma_scatter, d_long_px) / p.r);
+
+    // Project (u1, v1) onto the direction perpendicular to β.
+    // The reflex long axis lies along β, so clinically visible movement is perpendicular to β.
+    // Discarding the component parallel to β makes the movement direction realistic for all
+    // streak angles, not just when θ is aligned with a principal meridian.
+    const sinB  = Math.sin(beta);
+    const cosB  = Math.cos(beta);
+    const d_perp = -u1 * sinB + v1 * cosB;   // signed scalar along (−sinβ, cosβ)
+    const u1_perp =  d_perp * (-sinB);
+    const v1_perp =  d_perp *   cosB;
+
+    // Normalised reflex centre offsets (fractions of pupil radius)
+    const reflexOffsetX =  u1_perp / PUPIL_R_M;
+    const reflexOffsetY = -v1_perp / PUPIL_R_M;
+
+    // Populate debug object for right eye
+    if (eye === 'right') {
+        // Reflex movement gain: how far the reflex centre moves per unit of streak movement.
+        // = |WmX| × √( sin²(θ−α)/effD(dKa)² + cos²(θ−α)/effD(dKa90)² )
+        const eDa  = effD(dKa);
+        const eDa90 = effD(dKa90);
+        const gain = Math.abs(WmX) * Math.sqrt(
+            sinSq / (eDa   * eDa) +
+            cosSq / (eDa90 * eDa90)
+        );
+        dbg.active      = true;
+        dbg.W           = W;
+        dbg.Ka          = Ka;
+        dbg.Ka90        = Ka90;
+        dbg.beta        = beta * 180 / Math.PI;
+        dbg.gain        = gain;
+        dbg.reflexWidth = reflexWidth;
+        dbg.alpha       = alpha * 180 / Math.PI;
+        dbg.s_m         = s_m;
+        dbg.p1          = p1;
+        dbg.q1          = q1;
+        dbg.u1          = u1;
+        dbg.v1          = v1;
+    }
+
+    return { reflexWidth, reflexLength, brightness, reflexOffsetX, reflexOffsetY, beta };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  REFLEX TEXTURE — precomputed Gaussian cross-section
+//
+//  A 200 × 30 px offscreen canvas drawn once at startup.
+//  Long axis (200 px): spans the streak length — clip() trims the ends.
+//  Short axis (30 px): encodes the Gaussian falloff perpendicular to
+//    the streak.  sigma_tex = 5 px so 3σ = 15 px = half the texture
+//    height, giving a smooth profile that fades cleanly to the edges.
+//
+//  At render time the texture is scaled so its short axis = reflexWidth
+//  × 2 × pupil.r pixels, and rotated to angle beta.  No ctx.filter
+//  is used anywhere — works identically on Chrome, Firefox, and Safari.
+// ═══════════════════════════════════════════════════════════════════
+const TEX_W = 200;   // long axis  (px) — streak direction
+const TEX_H = 30;    // short axis (px) — Gaussian cross-section
+
+const reflexTexture = (() => {
+    const off  = document.createElement('canvas');
+    off.width  = TEX_W;
+    off.height = TEX_H;
+    const octx = off.getContext('2d');
+    const img  = octx.createImageData(TEX_W, TEX_H);
+    const data = img.data;
+
+    // Gaussian falloff across the short axis (y), uniform along the long axis (x).
+    // dy normalised to −1..+1 across the texture height; sigma controls softness.
+    const sigma = CFG.reflexGaussianSigma;
+    for (let y = 0; y < TEX_H; y++) {
+        const dy    = (y - TEX_H / 2) / (TEX_H / 2);   // −1 to +1
+        const alpha = Math.round(255 * Math.exp(-(dy * dy) / (2 * sigma * sigma)));
+        for (let x = 0; x < TEX_W; x++) {
+            const i      = (y * TEX_W + x) * 4;
+            data[i]     = 245;   // R  — warm white #F5DEB3
+            data[i + 1] = 222;   // G
+            data[i + 2] = 179;   // B
+            data[i + 3] = alpha; // Gaussian alpha — bright centre, soft edges
+        }
+    }
+    octx.putImageData(img, 0, 0);
+    return off;
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  renderEye(eye, physics)
+//
+//  Draws one eye.  If physics is null (inactive eye), draws a plain
+//  black pupil.  If physics is provided, draws the Gaussian reflex
+//  texture inside the pupil using clip + drawImage (no ctx.filter).
+// ═══════════════════════════════════════════════════════════════════
+function renderEye(eye, physics, streakAR = 5) {
+    const p = PUPIL[eye];
+
+    // Black pupil base (covers the photograph pupil consistently)
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+
+    if (physics === null) return;   // inactive eye — nothing more to draw
+
+    // ── Reflex centre in canvas coordinates ──────────────────────────
+    // reflexOffsetX/Y are fractions of pupil radius; clamp to ±3 r so
+    // extreme values (high defocus, streak far from pupil) don't cause
+    // the texture to be drawn completely off-canvas.  The clip() to the
+    // pupil circle means anything outside the pupil is invisible anyway.
+    // Circular magnitude clamp — preserves displacement direction at all streak angles.
+    // Per-axis clamping distorts direction when both components are large (near neutralisation).
+    const rawMag   = Math.sqrt(physics.reflexOffsetX ** 2 + physics.reflexOffsetY ** 2);
+    const magScale = rawMag > 10 ? 10 / rawMag : 1;
+    const xRef = p.x + physics.reflexOffsetX * magScale * p.r;
+    const yRef = p.y + physics.reflexOffsetY * magScale * p.r;
+
+    // ── Texture destination dimensions ────────────────────────────────
+    // Short axis: reflexWidth × pupil diameter (reflexWidth is 0–1), driven by K_perp
+    // Long axis:  take the larger of:
+    //   - streakAR × destH  (streak elongation, keeps plano eye looking like a streak)
+    //   - reflexLength × 2 × p.r  (optical long axis, driven by K_parallel)
+    // For plano: reflexLength ≈ 1 → optical = 30 px; streakAR term dominates → elongated streak ✓
+    // For −2 CYL at 90° + −1.5 eye: K_parallel ≈ neutral → reflexLength = 5 → optical = 150 px;
+    //   streakAR term also large → both ensure full-length reflex, long axis not shrunk by CYL ✓
+    const destH = Math.max(1, physics.reflexWidth * 2 * p.r * CFG.reflexWidthScale);
+    const destW = Math.max(destH * CFG.reflexMinAR, physics.reflexLength * 2 * p.r);
+
+    // ── Draw texture: save → clip → translate/rotate → drawImage → restore
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.clip();
+
+    // ×1.5 compensates for energy spread — Gaussian area < 1
+    ctx.globalAlpha = Math.min(1.0, physics.brightness * CFG.brightnessMax);
+
+    ctx.translate(xRef, yRef);
+    ctx.rotate(-physics.beta);   // canvas rotate() is CW; beta is CCW
+
+    // Centre the texture on the reflex centre
+    ctx.drawImage(reflexTexture,
+        -destW / 2, -destH / 2,   // top-left corner of destination
+         destW,      destH         // destination width and height
+    );
+
+    ctx.restore();
+
+    // ── Cataract overlay ─────────────────────────────────────────────
+    // Drawn over the reflex, clipped to the pupil, only when illuminated.
+    // Simulates nuclear sclerosis: uniform warm brown haze dimming the reflex.
+    const cataractOpacity = state.shared.activeLevelConfig
+        ? (state.shared.activeLevelConfig.cataract.enabled
+            ? state.shared.activeLevelConfig.cataract.opacity
+            : 0)
+        : 0;
+
+    if (cataractOpacity > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.globalAlpha = cataractOpacity;
+        ctx.fillStyle   = 'rgba(101, 67, 33, 1)';   // warm amber-brown
+        ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+        ctx.restore();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONTROL EVENT HANDLERS
+//  All handlers write to the state object only.
+//  The render loop reads state on every frame — no extra refresh needed.
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Click-and-hold with acceleration for axis buttons.
+ * First step fires immediately; after 400 ms auto-repeat begins at 150 ms/step
+ * and accelerates by 15% per tick down to a floor of 40 ms/step.
+ */
+let _holdTimer    = null;
+let _holdInterval = null;
+
+function startHold(eye, rx, field, delta) {
+    step(eye, rx, field, delta);            // immediate first step on press
+    _holdTimer = setTimeout(() => {         // 400 ms pause then begin ramp
+        let delay = 150;
+        function tick() {
+            step(eye, rx, field, delta);
+            delay = Math.max(40, Math.round(delay * 0.85));
+            _holdInterval = setTimeout(tick, delay);
+        }
+        _holdInterval = setTimeout(tick, delay);
+    }, 400);
+}
+
+function stopHold() {
+    clearTimeout(_holdTimer);
+    clearTimeout(_holdInterval);
+    _holdTimer    = null;
+    _holdInterval = null;
+}
+
+/**
+ * step(eye, rx, field, delta)
+ * Increment a prescription field by delta, update state and display.
+ * SPH/CYL: step ±0.25 D, no hard clamp (full clinical range).
+ * AXIS: step ±1°, clamped 0–180.
+ */
+function step(eye, rx, field, delta) {
+    let val = state[eye][rx][field] + delta;
+
+    if (field === 'axis') {
+        val = Math.max(0, Math.min(180, Math.round(val)));
+    } else {
+        // Round to nearest 0.25 to prevent floating-point drift
+        val = Math.round(val * 4) / 4;
+    }
+
+    state[eye][rx][field] = val;
+
+    // Update the display span
+    const id = `${eye[0]}-${rx === 'patientRx' ? 'prx' : 'trx'}-${field}`;
+    const el = document.getElementById(id);
+    if (el) {
+        el.textContent = field === 'axis'
+            ? val
+            : (val >= 0 ? '+' : '') + val.toFixed(2);
+    }
+}
+
+// ── Working distance ─────────────────────────────────────────────
+document.getElementById('wd-input').addEventListener('change', function () {
+    const v = parseFloat(this.value);
+    if (v >= 30 && v <= 120) {
+        state.shared.workingDistanceCm = v;
+    } else {
+        state.shared.workingDistanceCm = Math.max(30, Math.min(120, v || 67));
+        this.value = state.shared.workingDistanceCm;
+    }
+});
+
+// ── Streak axis ──────────────────────────────────────────────────
+document.getElementById('streak-axis-slider').addEventListener('input', function () {
+    state.shared.streakAxisDeg = parseInt(this.value);
+    document.getElementById('streak-axis-display').textContent = this.value;
+});
+
+// ── Collar slider ────────────────────────────────────────────────
+document.getElementById('collar-slider').addEventListener('input', function () {
+    state.shared.collarPosition = parseFloat(this.value);
+});
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  TRIAL LENS OVERLAY — renderLensOverlay(eye, trialRx)
+//
+//  Handles sphere only, cylinder only, and combined sphere+cylinder.
+//  Positive lens: black #1a1a1a rim.  Negative lens: red #AA0000 rim.
+//  Sphere tab: fixed at 10 o'clock (right) / 2 o'clock (left).
+//  Cylinder tab: rotates with axis; axis markers engraved on rim.
+// ═══════════════════════════════════════════════════════════════════
+function renderLensOverlay(eye, trialRx) {
+    const EPS    = 0.01;
+    const S      = trialRx.S;
+    const C      = trialRx.C;
+    const axis   = trialRx.axis;
+    const hasSph = Math.abs(S) > EPS;
+    const hasCyl = Math.abs(C) > EPS;
+
+    if (!hasSph && !hasCyl) return;
+
+    const f      = FRAME[eye];
+    const cx     = f.x;
+    const cy     = f.y;
+    const outerR = f.outerR;   // 75 px
+    const innerR = f.innerR;   // 47 px
+
+    const sphColour = S > 0 ? '#1a1a1a' : '#B1011F';
+    const cylColour = C > 0 ? '#1a1a1a' : '#B1011F';
+
+    // Sphere tab: fixed clock position. Cylinder tab: rotates with axis.
+    const sphTabAngle = eye === 'right' ? -2 * Math.PI / 3   // 10 o'clock
+                                        : -Math.PI / 3;       // 2  o'clock
+    const cylTabAngle = -axis * Math.PI / 180;  // negative = anticlockwise (optometric convention)
+
+    // Tab geometry
+    const tabH   = 55;
+    const baseHW = 14;
+    const tipHW  = 27.5;
+    const cr     = 6;
+    const r1     = outerR - 3;
+    const r2     = outerR + tabH;
+    const labelX = r1 + 10;
+    const labelW = tabH - 14;
+    const labelH = 17;
+
+    // ── helpers ───────────────────────────────────────────────────────
+
+    function drawGlassFill() {
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200, 220, 255, 0.08)';
+        ctx.fill();
+    }
+
+    function drawRim(colour) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerR, 0, Math.PI * 2, false);
+        ctx.arc(cx, cy, innerR, 0, Math.PI * 2, true);
+        ctx.fillStyle   = colour;
+        ctx.globalAlpha = 0.90;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+
+    function drawChromeBezel() {
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+        ctx.strokeStyle = '#888888';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+    }
+
+    function drawAxisMarkers() {
+        const axisRad = -axis * Math.PI / 180;  // negative = anticlockwise (optometric convention)
+        [axisRad, axisRad + Math.PI].forEach(a => {
+            ctx.beginPath();
+            ctx.moveTo(cx + innerR * Math.cos(a), cy + innerR * Math.sin(a));
+            ctx.lineTo(cx + outerR * Math.cos(a), cy + outerR * Math.sin(a));
+            ctx.strokeStyle = '#aaaaaa';
+            ctx.lineWidth   = 1.5;
+            ctx.stroke();
+        });
+    }
+
+    function drawTab(angle, colour, labelText, baseR = r1) {
+        const lx = baseR + 10;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+
+        // Trapezoidal body
+        ctx.beginPath();
+        ctx.moveTo(baseR,    -baseHW);
+        ctx.lineTo(r2 - cr, -tipHW);
+        ctx.arcTo( r2,      -tipHW, r2,      -tipHW + cr, cr);
+        ctx.lineTo(r2,       tipHW - cr);
+        ctx.arcTo( r2,       tipHW, r2 - cr,  tipHW,      cr);
+        ctx.lineTo(baseR,    baseHW);
+        ctx.closePath();
+        ctx.fillStyle   = colour;
+        ctx.globalAlpha = 0.85;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+
+        // Recessed label area
+        ctx.beginPath();
+        ctx.roundRect(lx, -labelH / 2, labelW, labelH, 4);
+        ctx.fillStyle   = 'rgba(0, 0, 0, 0.30)';
+        ctx.fill();
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        // Label text
+        ctx.fillStyle    = '#ffffff';
+        ctx.font         = '11px "Courier New", monospace';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelText, lx + labelW / 2, 0);
+
+        ctx.restore();
+    }
+
+    // Label strings — positive: no sign e.g. "1.75"; negative: "-1.75"
+    const sphLabel = S > 0 ? Math.abs(S).toFixed(2) : '-' + Math.abs(S).toFixed(2);
+    const cylLabel = C > 0 ? Math.abs(C).toFixed(2) : '-' + Math.abs(C).toFixed(2);
+
+    // ── render by case ────────────────────────────────────────────────
+
+    ctx.save();
+
+    if (hasSph && !hasCyl) {
+        // Sphere only
+        drawGlassFill();
+        drawRim(sphColour);
+        drawChromeBezel();
+        drawTab(sphTabAngle, sphColour, sphLabel);
+
+    } else if (!hasSph && hasCyl) {
+        // Cylinder only
+        drawGlassFill();
+        drawRim(cylColour);
+        drawChromeBezel();
+        drawAxisMarkers();
+        drawTab(cylTabAngle, cylColour, cylLabel);
+
+    } else {
+        // Both — cyl rim sits on top of sph rim; sphere tab still visible
+        drawGlassFill();
+        drawRim(cylColour);       // cyl rim obscures sphere rim
+        drawChromeBezel();
+        drawAxisMarkers();
+        drawTab(sphTabAngle, sphColour, sphLabel);  // sphere tab at fixed position
+        drawTab(cylTabAngle, cylColour, cylLabel);   // cyl tab rotates with axis
+    }
+
+    ctx.restore();
+}
+
+function updateDebugPanel() {
+    const fmt = (v, dp) => isFinite(v) ? v.toFixed(dp) : (v > 0 ? '+∞' : '−∞');
+    const ids = ['dbg-W','dbg-Ka','dbg-Ka90','dbg-beta','dbg-gamma','dbg-rw',
+                 'dbg-alpha','dbg-sm','dbg-p1','dbg-q1','dbg-u1','dbg-v1'];
+    if (!dbg.active) {
+        ids.forEach(id => document.getElementById(id).textContent = '—');
+        return;
+    }
+    document.getElementById('dbg-W').textContent     = fmt(dbg.W,       4);
+    document.getElementById('dbg-Ka').textContent    = fmt(dbg.Ka,      4);
+    document.getElementById('dbg-Ka90').textContent  = fmt(dbg.Ka90,    4);
+    // Normalise beta to 0–180°
+    let betaDeg = dbg.beta % 180;
+    if (betaDeg < 0) betaDeg += 180;
+    document.getElementById('dbg-beta').textContent  = fmt(betaDeg,     1);
+    document.getElementById('dbg-gamma').textContent = fmt(dbg.gain,    2);
+    document.getElementById('dbg-rw').textContent    = fmt(dbg.reflexWidth, 3);
+    // Normalise alpha to 0–180°
+    let alphaDeg = dbg.alpha % 180;
+    if (alphaDeg < 0) alphaDeg += 180;
+    document.getElementById('dbg-alpha').textContent = fmt(alphaDeg,    1);
+    document.getElementById('dbg-sm').textContent    = fmt(dbg.s_m * 1000, 4);  // convert m → mm
+    document.getElementById('dbg-p1').textContent    = fmt(dbg.p1 * 1000, 4);
+    document.getElementById('dbg-q1').textContent    = fmt(dbg.q1 * 1000, 4);
+    document.getElementById('dbg-u1').textContent    = fmt(dbg.u1 * 1000, 4);
+    document.getElementById('dbg-v1').textContent    = fmt(dbg.v1 * 1000, 4);
+}
+
+function renderFrame() {
+    // Explicit state reset at frame start — defensive against browser quirks
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.clearRect(0, 0, 1920, 1080);
+
+    const activeEye = getActiveEye(mouse.x, mouse.y);
+
+    // ── Streak geometry (used by both reflex and streak rendering) ─────
+    const collar_u = 0.064 + state.shared.collarPosition * (0.1088 - 0.064);
+    const W_frame  = calcW(state.shared.workingDistanceCm);
+    const sf_frame = calcStreakFactor(W_frame, collar_u);
+    const sfMax_frame = calcStreakFactor(W_frame, 0.064);
+    const sWid_frame  = Math.max(1, 45 * sf_frame / sfMax_frame);
+    const streakAR    = 225 / sWid_frame;   // streak aspect ratio; always >= 5
+
+    // Right eye
+    if (activeEye === 'right') {
+        dbg.active = false;   // will be set true inside computeEyeFrame if streak hits pupil
+        renderEye('right', computeEyeFrame('right', mouse.x, mouse.y), streakAR);
+    } else {
+        dbg.active = false;
+        renderEye('right', null, streakAR);
+    }
+
+    // Left eye
+    if (activeEye === 'left') {
+        renderEye('left', computeEyeFrame('left', mouse.x, mouse.y), streakAR);
+    } else {
+        renderEye('left', null, streakAR);
+    }
+
+    // ── Lens overlays — drawn after pupils, before streak ─────────────
+    renderLensOverlay('right', state.right.trialRx);
+    renderLensOverlay('left',  state.left.trialRx);
+
+    // ── Streak ────────────────────────────────────────────────────────
+    // Only drawn when the mouse is inside an active zone.
+    // Width varies with collar position via calcStreakFactor().
+    // Length is fixed at 225px. Blend mode 'screen' adds light to the
+    // photograph beneath rather than painting over it.
+    if (activeEye !== null && mouse.x >= 0) {
+        const theta    = state.shared.streakAxisDeg * Math.PI / 180;
+        const sf       = sf_frame;
+        const sf_max   = sfMax_frame;
+        const sWid     = sWid_frame;
+        // The line below controls the blur on the streak on the face, the value 0.1
+        const blurRadius = Math.max(0, sWid * CFG.streakFaceBlurFactor);
+        ctx.filter = blurRadius > 0.5 ? `blur(${blurRadius.toFixed(1)}px)` : 'none';
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle   = '#FFB566';
+        ctx.globalAlpha = 0.25;
+        ctx.translate(mouse.x, mouse.y);
+        ctx.rotate(-theta);
+        ctx.beginPath();
+        ctx.roundRect(-112.5, -sWid / 2, 225, sWid, sWid / 2);
+        ctx.fill();
+        ctx.restore();
+        ctx.filter = 'none';
+
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+    }
+
+
+    updateDebugPanel();
+    requestAnimationFrame(renderFrame);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RANDOM PRESCRIPTION GENERATOR
+//
+//  Uses the Box-Muller transform to produce normally distributed values
+//  centred on zero, so extreme prescriptions are rare.
+//
+//  Sigma values chosen so that ±3σ = the specified outer bound:
+//    Sphere:   σ = 10/3 ≈ 3.33 D  →  3σ = ±10.00 D
+//    Cylinder: σ =  6/3 =  2.00 D  →  3σ = −6.00 D (always ≤ 0, minus-cyl)
+//    Axis:     uniform 5–180° in 5° steps
+// ═══════════════════════════════════════════════════════════════════
+
+// Generate a random value between min and max in steps of step
+function randomStep(min, max, step) {
+    const steps = Math.round((max - min) / step);
+    return Math.round((min + Math.floor(Math.random() * (steps + 1)) * step) * 100) / 100;
+}
+
+// Generate a prescription within the constraints of a level config.
+// If an anchor (right eye Rx) is supplied, the left eye is generated as
+// an offset from the anchor, bounded by between_eye_sph_tol / between_eye_cyl_tol
+// and clamped to the level's allowed range.
+function generatePrescription(levelConfig, anchor = null) {
+    const p = levelConfig.prescription;
+
+    // ── Sphere ──────────────────────────────────────────────────────
+    let S;
+    if (anchor === null) {
+        // Right eye — drawn freely within the level range
+        S = randomStep(p.sphere_min, p.sphere_max, p.sphere_step);
+    } else {
+        // Left eye — offset from right eye; no level-range clamp applied
+        const offset = randomStep(-p.between_eye_sph_tol, p.between_eye_sph_tol, p.sphere_step);
+        S = Math.round((anchor.S + offset) * 100) / 100;
+    }
+
+    // ── Cylinder ─────────────────────────────────────────────────────
+    let C = 0.00;
+    if (p.cylinder_min !== p.cylinder_max) {
+        if (anchor === null) {
+            // Right eye — drawn freely within the level range
+            C = randomStep(p.cylinder_min, p.cylinder_max, p.cylinder_step);
+        } else {
+            // Left eye — offset from right eye; no level-range clamp applied
+            const offset = randomStep(-p.between_eye_cyl_tol, p.between_eye_cyl_tol, p.cylinder_step);
+            C = Math.round((anchor.C + offset) * 100) / 100;
+        }
+        if (!p.allow_plus_cylinder) C = Math.min(0, C);
+    }
+
+    // ── Axis — always independent between eyes ───────────────────────
+    const axis = (C !== 0)
+        ? randomStep(p.axis_min, p.axis_max, 5)
+        : 0;
+
+    return { S, C, axis };
+}
+
+// Set working distance from level config and update the UI
+function setWorkingDistance(levelConfig) {
+    const wd = levelConfig.working_distance;
+    const options = wd.allowed_values_cm;
+    const value = wd.fixed
+        ? options[0]
+        : options[Math.floor(Math.random() * options.length)];
+    state.shared.workingDistanceCm = value;
+    document.getElementById('wd-input').value = value;
+}
+
+// Set pupil radius from level config and recalculate SCALE
+function setPupilSize(levelConfig) {
+    const r = levelConfig.pupil.radius_px;
+    PUPIL.right.r = r;
+    PUPIL.left.r  = r;
+    SCALE = PUPIL_R_M / r;
+}
+
+function randomiseRx() {
+    const levelConfig = state.shared.activeLevelConfig;
+    if (!levelConfig) return;  // no level selected — should not happen
+
+    // Generate right eye freely, then anchor left eye within inter-ocular tolerance
+    const rightRx = generatePrescription(levelConfig);
+    const leftRx  = generatePrescription(levelConfig, rightRx);
+
+    [['right', 'r', rightRx], ['left', 'l', leftRx]].forEach(([eye, e, rx]) => {
+        const { S, C, axis } = rx;
+
+        // Write into state
+        state[eye].patientRx.S    = S;
+        state[eye].patientRx.C    = C;
+        state[eye].patientRx.axis = axis;
+
+    });
+
+    // Un-dim all session elements now randomise has been clicked
+    ['ctrl-right', 'ctrl-left', 'ctrl-ret'].forEach(id => {
+        document.getElementById(id).classList.remove('dimmed');
+    });
+
+    // Advance unified button to next state: Record Rx
+    const btn = document.getElementById('btn-finished');
+    btn.textContent = 'Record Rx';
+    btn.onclick     = recordRx;
+
+    state.shared.sessionActive = true;
+    startTimer();
+
+    // Set working distance and pupil size from level config
+    setWorkingDistance(levelConfig);
+    setPupilSize(levelConfig);
+
+    // Reset trial lenses to zero for both eyes when a new Rx is generated
+    ['right', 'left'].forEach(eye => {
+        state[eye].trialRx.S    = 0;
+        state[eye].trialRx.C    = 0;
+        state[eye].trialRx.axis = 0;
+    });
+    ['r', 'l'].forEach(e => {
+        document.getElementById(`${e}-trx-S`).textContent    = '+0.00';
+        document.getElementById(`${e}-trx-C`).textContent    = '+0.00';
+        document.getElementById(`${e}-trx-axis`).textContent = '0';
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LED TIMER
+// ═══════════════════════════════════════════════════════════════════
+let timerInterval  = null;
+let timerSeconds   = 0;
+
+function timerTick() {
+    timerSeconds++;
+    updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+    const mm  = Math.floor(timerSeconds / 60);
+    const ss  = timerSeconds % 60;
+    const str = String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+    const el  = document.getElementById('led-time-display');
+    el.textContent = str;
+    el.classList.remove('inactive');
+}
+
+function startTimer() {
+    // Reset and restart
+    if (timerInterval) clearInterval(timerInterval);
+    timerSeconds = 0;
+    updateTimerDisplay();
+    timerInterval = setInterval(timerTick, 1000);
+}
+
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    // Final display stays frozen on screen
+}
+
+// Called when student clicks RECORD RX — shows record card, stops timer,
+// relabels button to FINISHED ready for final submission.
+function recordRx() {
+    if (!state.shared.sessionActive) return;
+
+    // Stop the timer
+    stopTimer();
+
+    // Dim the retinoscopy panels — student should now focus on the record card
+    ['ctrl-right', 'ctrl-left', 'ctrl-ret'].forEach(id => {
+        document.getElementById(id).classList.add('dimmed');
+    });
+
+    // Clear record card inputs
+    ['r', 'l'].forEach(e => {
+        document.getElementById(`rc-${e}-S`).value    = '';
+        document.getElementById(`rc-${e}-C`).value    = '';
+        document.getElementById(`rc-${e}-axis`).value = '';
+    });
+
+    // Reset record card state
+    state.shared.recordCard = {
+        right: { S: null, C: null, axis: null },
+        left:  { S: null, C: null, axis: null }
+    };
+
+    // Set accent border colour from current level
+    const level  = state.shared.activeLevelConfig;
+    const accent = level ? level.accent_colour : '#555';
+    document.getElementById('record-card').style.borderLeftColor = accent;
+
+    // Populate working distance line
+    const wd = document.getElementById('wd-input').value;
+    document.getElementById('rc-wd-line').textContent =
+        'Working distance: ' + wd + ' cm';
+
+    // Show the record card
+    const card = document.getElementById('record-card');
+    card.style.display = 'block';
+    state.shared.recordCardVisible = true;
+
+    // Align the card's bottom edge with the bottom of the Retinoscope box.
+    // offsetHeight includes the ctrl-panel's margin-bottom, so subtract it.
+    const ret = document.getElementById('ctrl-ret');
+    const retPanel = ret.querySelector('.ctrl-panel');
+    const panelMarginBottom = parseInt(getComputedStyle(retPanel).marginBottom) || 0;
+    const retBottom = ret.offsetTop + ret.offsetHeight - panelMarginBottom;
+    card.style.top = (retBottom - card.offsetHeight) + 'px';
+
+    // Relabel button to FINISHED and rewire to finishSession()
+    const btn = document.getElementById('btn-finished');
+    btn.textContent = 'Finished';
+    btn.onclick     = finishSession;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SCORING
+// ═══════════════════════════════════════════════════════════════════
+const SPH_TOLERANCE  = 0.25;
+const CYL_TOLERANCE  = 0.25;
+const AXIS_TOLERANCE = 5;
+
+function scoreComponent(error, tolerance) {
+    const abs = Math.abs(error);
+    if (abs === 0)                   return 'EXACT';
+    if (abs <= tolerance)            return 'GOOD';
+    if (abs <= tolerance * 2)        return 'CLOSE';
+    return 'REVIEW';
+}
+
+// Returns 0–100 score for one eye
+function scoreEye(patientRx, studentRx) {
+    const sphErr  = Math.abs(patientRx.S    - studentRx.S);
+    const cylErr  = Math.abs(patientRx.C    - studentRx.C);
+    const axisErr = Math.abs(patientRx.axis - studentRx.axis);
+
+    const sphScore  = Math.max(0, 100 - (sphErr  / 0.25) * 20);
+    const cylScore  = Math.max(0, 100 - (cylErr  / 0.25) * 20);
+    const axisScore = Math.max(0, 100 - (axisErr / 5)    * 10);
+
+    return (sphScore * 0.4) + (cylScore * 0.4) + (axisScore * 0.2);
+}
+
+function calculateAccuracy(rightPatient, leftPatient, rightStudent, leftStudent) {
+    const rightScore = scoreEye(rightPatient, rightStudent);
+    const leftScore  = scoreEye(leftPatient,  leftStudent);
+    return Math.round((rightScore + leftScore) / 2);
+}
+
+// Format a prescription as "−2.00 / −1.00 × 090"
+function fmtRx(S, C, axis) {
+    const sSign = S >= 0 ? '+' : '−';
+    const cSign = C >= 0 ? '+' : '−';
+    const sStr  = sSign + Math.abs(S).toFixed(2);
+    const cStr  = cSign + Math.abs(C).toFixed(2);
+    const aStr  = String(axis).padStart(3, '0');
+    return `${sStr} / ${cStr} × ${aStr}`;
+}
+
+/// Escape any HTML special characters before inserting text into innerHTML.
+// This prevents injected strings from being treated as executable HTML/JS.
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g,  '&amp;')
+        .replace(/</g,  '&lt;')
+        .replace(/>/g,  '&gt;')
+        .replace(/"/g,  '&quot;')
+        .replace(/'/g,  '&#39;');
+}
+
+// Format elapsed seconds as M:SS
+function fmtTime(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// Colour class for a score tag
+function tagClass(tag) {
+    return 'colour-' + tag.toLowerCase();
+}
+
+function barClass(tag) {
+    return 'bg-' + tag.toLowerCase();
+}
+
+// Bar fill width as percentage (100% = exact, 0% = very wrong)
+function barWidth(error, tolerance) {
+    const maxError = tolerance * 8;   // beyond this → 0% bar
+    const abs = Math.min(Math.abs(error), maxError);
+    return Math.round((1 - abs / maxError) * 100);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RESULTS CARD MODAL
+// ═══════════════════════════════════════════════════════════════════
+function axisError(a, b) {
+    const diff = Math.abs(a - b);
+    return Math.min(diff, 180 - diff);
+}
+
+function eyeAccuracy(sphErr, cylErr, axErr) {
+    const sphScore  = Math.max(0, 100 - (sphErr / 0.25) * 20);
+    const cylScore  = Math.max(0, 100 - (cylErr / 0.25) * 20);
+    const axisScore = Math.max(0, 100 - (axErr  / 5)    * 10);
+    return Math.round(sphScore * 0.4 + cylScore * 0.4 + axisScore * 0.2);
+}
+
+function finishSession() {
+    // Collect record card values
+    ['r', 'l'].forEach((e, i) => {
+        const eye = i === 0 ? 'right' : 'left';
+        state.shared.recordCard[eye].S    = parseFloat(document.getElementById(`rc-${e}-S`).value)  || 0;
+        state.shared.recordCard[eye].C    = parseFloat(document.getElementById(`rc-${e}-C`).value)  || 0;
+        state.shared.recordCard[eye].axis = parseInt(document.getElementById(`rc-${e}-axis`).value) || 0;
+    });
+
+    // ── Push case to sessionData ─────────────────────────────────
+    const rPat = state.right.patientRx;
+    const lPat = state.left.patientRx;
+    const rStu = state.shared.recordCard.right;
+    const lStu = state.shared.recordCard.left;
+    const lvl  = state.shared.activeLevelConfig;
+
+    const rSphErr  = Math.abs(rPat.S    - rStu.S);
+    const rCylErr  = Math.abs(rPat.C    - rStu.C);
+    const rAxisErr = axisError(rPat.axis, rStu.axis);
+    const lSphErr  = Math.abs(lPat.S    - lStu.S);
+    const lCylErr  = Math.abs(lPat.C    - lStu.C);
+    const lAxisErr = axisError(lPat.axis, lStu.axis);
+
+    const rAcc = eyeAccuracy(rSphErr, rCylErr, rAxisErr);
+    const lAcc = eyeAccuracy(lSphErr, lCylErr, lAxisErr);
+
+    sessionData.cases.push({
+        caseNumber:      sessionData.cases.length + 1,
+        level:           lvl ? lvl.name          : '—',
+        accentColour:    lvl ? lvl.accent_colour  : '#555',
+        timeTaken:       timerSeconds,
+        right: {
+            patientRx:  { S: rPat.S, C: rPat.C, axis: rPat.axis },
+            studentRx:  { S: rStu.S, C: rStu.C, axis: rStu.axis },
+            sphError:   rSphErr,
+            cylError:   rCylErr,
+            axisError:  rAxisErr,
+            accuracy:   rAcc
+        },
+        left: {
+            patientRx:  { S: lPat.S, C: lPat.C, axis: lPat.axis },
+            studentRx:  { S: lStu.S, C: lStu.C, axis: lStu.axis },
+            sphError:   lSphErr,
+            cylError:   lCylErr,
+            axisError:  lAxisErr,
+            accuracy:   lAcc
+        },
+        overallAccuracy: Math.round((rAcc + lAcc) / 2)
+    });
+
+    showResultsCard();
+}
+
+function showResultsCard() {
+    const rightPat = state.right.patientRx;
+    const leftPat  = state.left.patientRx;
+    const rightStu = state.shared.recordCard.right;
+    const leftStu  = state.shared.recordCard.left;
+    const level    = state.shared.activeLevelConfig;
+    const accent   = level ? level.accent_colour : '#555';
+
+    // ── Populate static content ──────────────────────────────────
+    document.getElementById('rc-level-badge').textContent   = level ? level.name : '—';
+    document.getElementById('rc-level-badge').style.borderColor = accent;
+    document.getElementById('rc-level-badge').style.color       = accent;
+    document.getElementById('results-card').style.borderColor   = accent;
+
+    // Prescription text
+    document.getElementById('rc-right-patient-val').textContent = fmtRx(rightPat.S, rightPat.C, rightPat.axis);
+    document.getElementById('rc-left-patient-val').textContent  = fmtRx(leftPat.S,  leftPat.C,  leftPat.axis);
+    document.getElementById('rc-right-student-val').textContent = fmtRx(rightStu.S, rightStu.C, rightStu.axis);
+    document.getElementById('rc-left-student-val').textContent  = fmtRx(leftStu.S,  leftStu.C,  leftStu.axis);
+
+    // Scores per component
+    function populateEye(side, patient, student) {
+        const sphErr  = patient.S    - student.S;
+        const cylErr  = patient.C    - student.C;
+        const axisErr = patient.axis - student.axis;
+
+        const sphTag  = scoreComponent(sphErr,  SPH_TOLERANCE);
+        const cylTag  = scoreComponent(cylErr,  CYL_TOLERANCE);
+        const axisTag = scoreComponent(axisErr, AXIS_TOLERANCE);
+
+        // Errors
+        document.getElementById(`rc-${side}-sph-err`).textContent  = Math.abs(sphErr).toFixed(2)  + ' D';
+        document.getElementById(`rc-${side}-cyl-err`).textContent  = Math.abs(cylErr).toFixed(2)  + ' D';
+        document.getElementById(`rc-${side}-axis-err`).textContent = Math.abs(axisErr) + '°';
+
+        // Tags
+        ['sph','cyl','axis'].forEach((comp, i) => {
+            const tag = [sphTag, cylTag, axisTag][i];
+            const el  = document.getElementById(`rc-${side}-${comp}-tag`);
+            el.textContent = tag;
+            el.className   = 'rc-score-tag ' + tagClass(tag);
+        });
+
+        // Bar colours (set now, width animated later)
+        document.getElementById(`rc-${side}-sph-bar`).className  = 'rc-bar-fill ' + barClass(sphTag);
+        document.getElementById(`rc-${side}-cyl-bar`).className  = 'rc-bar-fill ' + barClass(cylTag);
+        document.getElementById(`rc-${side}-axis-bar`).className = 'rc-bar-fill ' + barClass(axisTag);
+
+        // Store widths for animation
+        document.getElementById(`rc-${side}-sph-bar`).dataset.targetWidth  = barWidth(sphErr,  SPH_TOLERANCE);
+        document.getElementById(`rc-${side}-cyl-bar`).dataset.targetWidth  = barWidth(cylErr,  CYL_TOLERANCE);
+        document.getElementById(`rc-${side}-axis-bar`).dataset.targetWidth = barWidth(axisErr, AXIS_TOLERANCE);
+    }
+
+    populateEye('right', rightPat, rightStu);
+    populateEye('left',  leftPat,  leftStu);
+
+    // Overall accuracy and time
+    const accuracy = calculateAccuracy(rightPat, leftPat, rightStu, leftStu);
+    document.getElementById('rc-accuracy-val').textContent = accuracy + '%';
+    document.getElementById('rc-time-val').textContent     = fmtTime(timerSeconds);
+
+    // Reset all animated elements to hidden
+    const fadeEls = [
+        'rc-right-patient','rc-right-student',
+        'rc-right-sph-row','rc-right-cyl-row','rc-right-axis-row',
+        'rc-left-patient','rc-left-student',
+        'rc-left-sph-row','rc-left-cyl-row','rc-left-axis-row',
+        'rc-summary-accuracy','rc-summary-time'
+    ];
+    fadeEls.forEach(id => document.getElementById(id).classList.remove('visible'));
+    document.getElementById('rc-action-row').classList.remove('visible');
+    ['right','left'].forEach(side => {
+        ['sph','cyl','axis'].forEach(comp => {
+            document.getElementById(`rc-${side}-${comp}-bar`).style.width = '0%';
+        });
+    });
+
+    // ── Show overlay and card ────────────────────────────────────
+    const overlay = document.getElementById('results-overlay');
+    const card    = document.getElementById('results-card');
+    overlay.style.display = 'flex';
+
+    // 0.0s — overlay fades in
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+
+        // 0.3s — card fades in
+        setTimeout(() => {
+            card.classList.add('visible');
+
+            // 0.5s — prescriptions appear + reveal real Rx in panels
+            setTimeout(() => {
+                ['rc-right-patient','rc-right-student',
+                 'rc-left-patient','rc-left-student'].forEach(id => {
+                    document.getElementById(id).classList.add('visible');
+                });
+                revealPrescription();
+
+                // 0.8s — score rows animate in one by one, bars fill
+                setTimeout(() => {
+                    const rows = [
+                        'rc-right-sph-row','rc-right-cyl-row','rc-right-axis-row',
+                        'rc-left-sph-row','rc-left-cyl-row','rc-left-axis-row'
+                    ];
+                    rows.forEach((id, i) => {
+                        setTimeout(() => {
+                            const row = document.getElementById(id);
+                            row.classList.add('visible');
+                            // Animate bar fill
+                            const [side, comp] = id.replace('rc-','').replace('-row','').split('-').reduce((a,v,i,arr) => {
+                                if (i === 0) a[0] = v;
+                                else if (i === 1) a[1] = v;
+                                return a;
+                            }, []);
+                            const bar = document.getElementById(`rc-${side}-${comp}-bar`);
+                            setTimeout(() => {
+                                bar.style.width = bar.dataset.targetWidth + '%';
+                            }, 50);
+                        }, i * 120);
+                    });
+
+                    // 1.2s — summary fades in
+                    setTimeout(() => {
+                        document.getElementById('rc-summary-accuracy').classList.add('visible');
+                        document.getElementById('rc-summary-time').classList.add('visible');
+                    }, 400);
+
+                    // 3.0s — action buttons become active
+                    setTimeout(() => {
+                        document.getElementById('rc-action-row').classList.add('visible');
+                    }, 2200);
+
+                }, 300);
+            }, 200);
+        }, 300);
+    });
+}
+
+function newPatient() {
+    // Close modal
+    const overlay = document.getElementById('results-overlay');
+    overlay.classList.remove('visible');
+    document.getElementById('results-card').classList.remove('visible');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+
+    // Hide record card
+    document.getElementById('record-card').style.display = 'none';
+    state.shared.recordCardVisible = false;
+
+    // Reset patient prescription in state
+    ['right','left'].forEach(eye => {
+        state[eye].patientRx = { S: 0, C: 0, axis: 0 };
+    });
+
+    // Reset trial lenses
+    ['right','left'].forEach(eye => {
+        state[eye].trialRx.S    = 0;
+        state[eye].trialRx.C    = 0;
+        state[eye].trialRx.axis = 0;
+    });
+    ['r','l'].forEach(e => {
+        document.getElementById(`${e}-trx-S`).textContent    = '+0.00';
+        document.getElementById(`${e}-trx-C`).textContent    = '+0.00';
+        document.getElementById(`${e}-trx-axis`).textContent = '0';
+    });
+
+    // Reset timer
+    timerSeconds = 0;
+    const display = document.getElementById('led-time-display');
+    display.textContent = '00:00';
+    display.classList.add('inactive');
+
+    // Reset unified button to initial state
+    const btn = document.getElementById('btn-finished');
+    btn.textContent = 'Generate Rx';
+    btn.onclick     = randomiseRx;
+
+    // Re-apply dimmed class to all session elements
+    ['ctrl-right','ctrl-left','ctrl-ret','btn-finished'].forEach(id => {
+        document.getElementById(id).classList.add('dimmed');
+    });
+    // Reset level buttons to full brightness — no selection active
+    document.querySelectorAll('.level-btn').forEach(btn => {
+        btn.classList.remove('selected', 'unselected');
+        const level = DIFFICULTY_CONFIG.find(l => l.id === parseInt(btn.dataset.levelId));
+        if (level) btn.style.borderLeftColor = level.accent_colour;
+    });
+    state.shared.difficultyLevel   = null;
+    state.shared.activeLevelConfig = null;
+    activeLevelId = null;
+
+    // btn-finished is already dimmed in the loop above; student must re-select a level
+
+    // Reset session state
+    state.shared.sessionActive     = false;
+    state.shared.recordCardVisible = false;
+    state.shared.recordCard        = {
+        right: { S: null, C: null, axis: null },
+        left:  { S: null, C: null, axis: null }
+    };
+}
+
+function endSession() {
+    // Hide results card
+    document.getElementById('results-overlay').classList.remove('visible');
+    document.getElementById('results-card').classList.remove('visible');
+
+    // Populate and show the session summary
+    showSessionSummary();
+}
+
+function average(arr) {
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function getLevelStats(levelName, cases) {
+    const levelCases = cases.filter(c => c.level === levelName);
+
+    const sphErrors  = [];
+    const cylErrors  = [];
+    const axisErrors = [];
+
+    levelCases.forEach(c => {
+        sphErrors.push(c.right.sphError,  c.left.sphError);
+        cylErrors.push(c.right.cylError,  c.left.cylError);
+        axisErrors.push(c.right.axisError, c.left.axisError);
+    });
+
+    const avgSphAccuracy  = average(sphErrors.map(e =>
+        Math.max(0, 100 - (e / 0.25) * 20)));
+    const avgCylAccuracy  = average(cylErrors.map(e =>
+        Math.max(0, 100 - (e / 0.25) * 20)));
+    const avgAxisAccuracy = average(axisErrors.map(e =>
+        Math.max(0, 100 - (e / 5) * 10)));
+
+    const overallAccuracy = average(levelCases.map(c => c.overallAccuracy));
+
+    return {
+        caseCount:    levelCases.length,
+        sphAccuracy:  Math.round(avgSphAccuracy),
+        cylAccuracy:  Math.round(avgCylAccuracy),
+        axisAccuracy: Math.round(avgAxisAccuracy),
+        overall:      Math.round(overallAccuracy)
+    };
+}
+
+function pctClass(pct) {
+    return pct >= 80 ? 'good' : pct >= 60 ? 'ok' : 'weak';
+}
+
+function barRow(label, pct, isNA) {
+    if (isNA) {
+        return `<div class="sm-bar-row">
+            <span class="sm-bar-label">${label}</span>
+            <span class="sm-bar-na">— n/a at this level</span>
+        </div>`;
+    }
+    const cls = pctClass(pct);
+    return `<div class="sm-bar-row">
+        <span class="sm-bar-label">${label}</span>
+        <div class="sm-bar-track">
+            <div class="sm-bar-fill ${cls}" data-target="${pct}"></div>
+        </div>
+        <span class="sm-bar-pct">${pct}%</span>
+    </div>`;
+}
+
+function renderLevelPanels() {
+    const container  = document.getElementById('sm-level-panels');
+    container.innerHTML = '';
+
+    const levelOrder = ['BEGINNER','NOVICE','PRACTITIONER','SPECIALIST','MASTER'];
+    const playedLevels = [...new Set(sessionData.cases.map(c => c.level))]
+        .sort((a, b) => levelOrder.indexOf(a) - levelOrder.indexOf(b));
+
+    playedLevels.forEach(levelName => {
+        const stats     = getLevelStats(levelName, sessionData.cases);
+        const lvlConfig = DIFFICULTY_CONFIG.find(l => l.name === levelName);
+        const accent    = lvlConfig ? lvlConfig.accent_colour : '#555';
+        const noCyl     = lvlConfig &&
+            lvlConfig.prescription.cylinder_min === lvlConfig.prescription.cylinder_max;
+        const caseLabel = stats.caseCount === 1 ? '1 case' : `${stats.caseCount} cases`;
+
+        const panel = document.createElement('div');
+        panel.className = 'sm-level-panel';
+        panel.style.borderLeftColor = accent;
+
+        panel.innerHTML = `
+            <div class="sm-panel-header">
+                <span class="sm-panel-name">${escapeHtml(levelName)}</span>
+                <span class="sm-panel-cases">${escapeHtml(caseLabel)}</span>
+                <span class="sm-panel-pct ${pctClass(stats.overall)}">${stats.overall}%</span>
+            </div>
+            ${barRow('SPH',  stats.sphAccuracy,  false)}
+            ${barRow('CYL',  stats.cylAccuracy,  noCyl)}
+            ${barRow('AXIS', stats.axisAccuracy, noCyl)}
+        `;
+
+        container.appendChild(panel);
+    });
+}
+
+function calculateScore(error, tolerance) {
+    if (tolerance === 0.25) {
+        return Math.max(0, 100 - (error / 0.25) * 20);
+    } else {
+        return Math.max(0, 100 - (error / 5) * 10);
+    }
+}
+
+function generateInsights(cases) {
+    if (cases.length <= 1) {
+        return [{ type: 'suggestion', text: 'Complete more cases to see detailed insights' }];
+    }
+
+    const insights = [];
+
+    // ── STRENGTHS ────────────────────────────────────────────────
+
+    // SPH strong across all cases
+    const allSphAcc = cases.map(c =>
+        (calculateScore(c.right.sphError, 0.25) +
+         calculateScore(c.left.sphError,  0.25)) / 2);
+    if (average(allSphAcc) >= 85) {
+        insights.push({ type: 'strength',
+            text: 'Sphere power accurate across all levels' });
+    }
+
+    // Strong at BEGINNER — ready to progress
+    const beginnerCases = cases.filter(c => c.level === 'BEGINNER');
+    if (beginnerCases.length >= 2 &&
+        average(beginnerCases.map(c => c.overallAccuracy)) >= 90) {
+        insights.push({ type: 'strength',
+            text: 'Strong at BEGINNER — ready to progress' });
+    }
+
+    // Improving across session
+    if (cases.length >= 4) {
+        const half      = Math.floor(cases.length / 2);
+        const firstAvg  = average(cases.slice(0, half).map(c => c.overallAccuracy));
+        const secondAvg = average(cases.slice(half).map(c => c.overallAccuracy));
+        if (secondAvg - firstAvg >= 10) {
+            insights.push({ type: 'strength',
+                text: 'Accuracy improving as the session progresses' });
+        }
+    }
+
+    // ── AREAS FOR IMPROVEMENT ────────────────────────────────────
+
+    // Axis weaker than sphere
+    const avgAxisAcc = average(cases.map(c =>
+        (calculateScore(c.right.axisError, 5) +
+         calculateScore(c.left.axisError,  5)) / 2));
+    const avgSphAcc  = average(cases.map(c =>
+        (calculateScore(c.right.sphError, 0.25) +
+         calculateScore(c.left.sphError,  0.25)) / 2));
+    if (avgSphAcc - avgAxisAcc >= 15) {
+        insights.push({ type: 'improvement',
+            text: 'Cylinder axis less accurate than sphere — focus on meridian alignment' });
+    }
+
+    // Left eye axis weaker than right
+    const rightAxisAcc = average(cases.map(c =>
+        calculateScore(c.right.axisError, 5)));
+    const leftAxisAcc  = average(cases.map(c =>
+        calculateScore(c.left.axisError,  5)));
+    if (rightAxisAcc - leftAxisAcc >= 15) {
+        insights.push({ type: 'improvement',
+            text: 'Left eye axis consistently less accurate than right eye' });
+    }
+
+    // Accuracy drops at higher difficulty
+    const levelOrder   = ['BEGINNER','NOVICE','PRACTITIONER','SPECIALIST','MASTER'];
+    const playedLevels = [...new Set(cases.map(c => c.level))]
+        .sort((a, b) => levelOrder.indexOf(a) - levelOrder.indexOf(b));
+    if (playedLevels.length >= 2) {
+        const firstAcc = average(
+            cases.filter(c => c.level === playedLevels[0])
+                 .map(c => c.overallAccuracy));
+        const lastAcc  = average(
+            cases.filter(c => c.level === playedLevels[playedLevels.length - 1])
+                 .map(c => c.overallAccuracy));
+        if (firstAcc - lastAcc >= 20) {
+            insights.push({ type: 'improvement',
+                text: 'Accuracy decreases significantly at higher difficulty levels' });
+        }
+    }
+
+    // Declining across session
+    if (cases.length >= 4) {
+        const half      = Math.floor(cases.length / 2);
+        const firstAvg  = average(cases.slice(0, half).map(c => c.overallAccuracy));
+        const secondAvg = average(cases.slice(half).map(c => c.overallAccuracy));
+        if (firstAvg - secondAvg >= 15) {
+            insights.push({ type: 'improvement',
+                text: 'Accuracy declining later in session — consider shorter practice blocks' });
+        }
+    }
+
+    // ── SUGGESTION ───────────────────────────────────────────────
+
+    const weakestLevel = playedLevels.find(l =>
+        average(cases.filter(c => c.level === l)
+                     .map(c => c.overallAccuracy)) < 75);
+
+    if (weakestLevel) {
+        const weakAxisAcc = average(
+            cases.filter(c => c.level === weakestLevel)
+                 .map(c => (calculateScore(c.right.axisError, 5) +
+                            calculateScore(c.left.axisError,  5)) / 2));
+        if (weakAxisAcc < 70) {
+            insights.push({ type: 'suggestion',
+                text: `Suggested focus: cylinder axis practice at ${weakestLevel}` });
+        } else {
+            insights.push({ type: 'suggestion',
+                text: `Suggested focus: more cases at ${weakestLevel} level` });
+        }
+    }
+
+    return insights.slice(0, 5);
+}
+
+function renderInsights() {
+    const insights = generateInsights(sessionData.cases);
+    const icons    = { strength: '✓', improvement: '~', suggestion: '→' };
+    const content  = document.getElementById('sm-insights-content');
+
+    content.innerHTML = insights.map(ins => `
+        <div class="sm-insight-line">
+            <span class="sm-insight-icon ${escapeHtml(ins.type)}">${icons[ins.type] || ''}</span>
+            <span>${escapeHtml(ins.text)}</span>
+        </div>`).join('');
+}
+
+function handleNewSession() {
+    // Hide summary overlay
+    document.getElementById('summary-overlay').classList.remove('visible');
+
+    // Reset session data for fresh session
+    sessionData.startTime = Date.now();
+    sessionData.cases     = [];
+
+    // Reset simulator to initial state (level unselected, everything dimmed)
+    newPatient();
+}
+
+// Approved domains for returnUrl redirect — only Sight Test Tutor is permitted
+const ALLOWED_RETURN_HOSTS = ['sighttesttutor.onrender.com'];
+
+function handleExit() {
+    const returnUrl = sessionData.returnUrl || null;
+    if (returnUrl) {
+        try {
+            const url  = new URL(returnUrl);
+            const host = url.hostname.toLowerCase();
+            if (ALLOWED_RETURN_HOSTS.includes(host)) {
+                window.location.href = returnUrl;
+            } else {
+                console.warn('handleExit: returnUrl blocked — host not in allowlist:', host);
+                window.location.reload();
+            }
+        } catch (e) {
+            // returnUrl was not a valid URL at all
+            console.warn('handleExit: returnUrl blocked — not a valid URL:', returnUrl);
+            window.location.reload();
+        }
+    } else {
+        window.location.reload();
+    }
+}
+
+function handlePrint() {
+    window.print();
+}
+
+function getPrintDate() {
+    return new Date().toLocaleDateString('en-GB', {
+        day: 'numeric', month: 'long', year: 'numeric'
+    });
+}
+
+function printBarRow(label, pct, isNA) {
+    if (isNA) {
+        return `<div class="print-bar-row">
+            <span class="print-bar-label">${label}</span>
+            <span style="font-size:9pt;color:#555">—</span>
+        </div>`;
+    }
+    const colour = pct >= 80 ? '#00C896' : pct >= 60 ? '#B8860B' : '#CC2222';
+    return `<div class="print-bar-row">
+        <span class="print-bar-label">${label}</span>
+        <div class="print-bar-container">
+            <div class="print-bar-fill" style="width:${pct}%;background:${colour}"></div>
+        </div>
+        <span class="print-bar-pct">${pct}%</span>
+    </div>`;
+}
+
+function populatePrintContent() {
+    const cases        = sessionData.cases;
+    const elapsedSec   = Math.floor((Date.now() - sessionData.startTime) / 1000);
+    const totalTime    = fmtTime(elapsedSec);
+    const caseCount    = cases.length;
+    const levelsPlayed = new Set(cases.map(c => c.level)).size;
+
+    const levelOrder   = ['BEGINNER','NOVICE','PRACTITIONER','SPECIALIST','MASTER'];
+    const playedLevels = [...new Set(cases.map(c => c.level))]
+        .sort((a, b) => levelOrder.indexOf(a) - levelOrder.indexOf(b));
+
+    // Level panels
+    const levelPanelsHtml = playedLevels.map(levelName => {
+        const stats     = getLevelStats(levelName, cases);
+        const lvlConfig = DIFFICULTY_CONFIG.find(l => l.name === levelName);
+        const accent    = lvlConfig ? lvlConfig.accent_colour : '#555';
+        const noCyl     = lvlConfig &&
+            lvlConfig.prescription.cylinder_min === lvlConfig.prescription.cylinder_max;
+
+        return `<div class="print-level-panel" style="border-left-color:${accent}">
+            <div class="print-level-header">
+                <span class="print-level-name">${escapeHtml(levelName)}</span>
+                <span class="print-level-score">${stats.overall}%</span>
+            </div>
+            ${printBarRow('SPH',  stats.sphAccuracy,  false)}
+            ${printBarRow('CYL',  stats.cylAccuracy,  noCyl)}
+            ${printBarRow('AXIS', stats.axisAccuracy, noCyl)}
+        </div>`;
+    }).join('');
+
+    // Insights
+    const insights    = generateInsights(cases);
+    const icons       = { strength: '✓', improvement: '~', suggestion: '→' };
+    const insightsHtml = `<div class="print-insights-panel">
+        <div class="print-insights-title">Insights</div>
+        ${insights.map(ins =>
+            `<div class="print-insight-line">${icons[ins.type] || ''}&nbsp;&nbsp;${escapeHtml(ins.text)}</div>`
+        ).join('')}
+    </div>`;
+
+    document.getElementById('summary-print-content').innerHTML = `
+        <div class="print-title">Retinoscopy Session Report</div>
+        <hr class="print-divider">
+        <div class="print-student-line">Student: _______________________</div>
+        <div class="print-date">Date: ${getPrintDate()}</div>
+        <hr class="print-divider">
+        <div class="print-stats">
+            Total time: ${totalTime} &nbsp;&nbsp;
+            Cases completed: ${caseCount} &nbsp;&nbsp;
+            Levels played: ${levelsPlayed}
+        </div>
+        ${levelPanelsHtml}
+        ${insightsHtml}
+        <div class="print-footer">Retinoscopy Simulator — Practice Session Report &nbsp;|&nbsp; © 2026 Intelligent Education Systems Ltd. All rights reserved. Registered in England and Wales No. 15745491</div>
+    `;
+}
+
+function showSessionSummary() {
+    const cases = sessionData.cases;
+
+    // ── Header stats ─────────────────────────────────────────────
+    const elapsedMs  = Date.now() - sessionData.startTime;
+    const elapsedSec = Math.floor(elapsedMs / 1000);
+    const totalTime  = fmtTime(elapsedSec);
+    const caseCount  = cases.length;
+    const levelsPlayed = new Set(cases.map(c => c.level)).size;
+
+    document.getElementById('sm-stats').textContent =
+        `Total time: ${totalTime}     Cases: ${caseCount}     Levels played: ${levelsPlayed}`;
+
+    // ── Render level panels, insights, and print content ─────────
+    renderLevelPanels();
+    renderInsights();
+    populatePrintContent();
+
+    // ── Show overlay ─────────────────────────────────────────────
+    document.getElementById('summary-overlay').classList.add('visible');
+
+    // ── Staggered animation sequence ─────────────────────────────
+    const panels = document.querySelectorAll('.sm-level-panel');
+
+    // Each panel fades in at 0.5s + (index * 0.4s)
+    // Its bars animate 0.2s after the panel appears
+    panels.forEach((panel, i) => {
+        const panelDelay = 500 + i * 400;
+        const barDelay   = panelDelay + 200;
+
+        setTimeout(() => {
+            panel.classList.add('visible');
+        }, panelDelay);
+
+        setTimeout(() => {
+            panel.querySelectorAll('.sm-bar-fill').forEach(bar => {
+                const target = bar.dataset.target || 0;
+                bar.style.width = target + '%';
+            });
+        }, barDelay);
+    });
+
+    // Insights fade in after last panel + 0.3s
+    const insightsDelay = 500 + panels.length * 400 + 300;
+    setTimeout(() => {
+        document.getElementById('sm-insights-panel').classList.add('visible');
+    }, insightsDelay);
+
+    // Buttons fade in after insights + 0.3s
+    setTimeout(() => {
+        document.getElementById('sm-button-row').classList.add('visible');
+    }, insightsDelay + 300);
+}
+
+// No-op — Right Rx / Left Rx display panels removed; prescription lives in state only
+function revealPrescription() {}
+
+// ═══════════════════════════════════════════════════════════════════
+//  STARTUP — initialise UI once difficulty config is loaded
+// ═══════════════════════════════════════════════════════════════════
+function selectLevel(id) {
+    activeLevelId = id;
+    state.shared.difficultyLevel   = id;
+    state.shared.activeLevelConfig = DIFFICULTY_CONFIG.find(l => l.id === id);
+
+    // Update button visual states
+    document.querySelectorAll('.level-btn').forEach(btn => {
+        const btnId = parseInt(btn.dataset.levelId);
+        const level = DIFFICULTY_CONFIG.find(l => l.id === btnId);
+        if (btnId === id) {
+            btn.classList.add('selected');
+            btn.classList.remove('unselected');
+            btn.style.borderLeftColor = level.accent_colour;
+        } else {
+            btn.classList.remove('selected');
+            btn.classList.add('unselected');
+            btn.style.borderLeftColor = level.accent_colour + '44'; // dim accent on unselected
+        }
+    });
+
+    // Un-dim the unified action button so the student can generate an Rx
+    document.getElementById('btn-finished').classList.remove('dimmed');
+}
+
+function initialiseUI() {
+    // Build difficulty level buttons from config
+    const container = document.getElementById('level-buttons');
+    DIFFICULTY_CONFIG.forEach(level => {
+        const btn = document.createElement('button');
+        btn.className       = 'level-btn';
+        btn.dataset.levelId = level.id;
+        btn.textContent     = level.name;
+        btn.style.borderLeftColor = level.accent_colour;   // full accent colour from the start
+        btn.addEventListener('click', () => selectLevel(level.id));
+        container.appendChild(btn);
+    });
+
+    renderFrame();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VIDEO INTRO
+// ═══════════════════════════════════════════════════════════════════
+
+// Show Enter button on landing page after 1 second
+setTimeout(() => {
+    document.getElementById('btn-enter').classList.add('visible');
+}, 1000);
+
+// Called when user clicks Enter on the landing page
+function enterSim() {
+    document.getElementById('landing-page').style.display = 'none';
+    const videoOverlay = document.getElementById('video-overlay');
+    videoOverlay.style.display = 'flex';
+    document.getElementById('intro-video').play();
+}
+
+(function initVideoIntro() {
+    const video    = document.getElementById('intro-video');
+    // Trigger simulator reveal automatically when video ends
+    video.addEventListener('ended', () => {
+        startSim();
+    });
+
+    // Fallback: if video fails to load, go straight to simulator
+    video.addEventListener('error', () => {
+        startSim();
+    });
+})();
+
+function startSim() {
+    const videoOverlay = document.getElementById('video-overlay');
+    const uiLayer      = document.getElementById('ui-layer');
+
+    // Cross-dissolve — fade video overlay out over 1.5s, face image shows through.
+    videoOverlay.classList.add('fade-out');
+
+    setTimeout(() => {
+        videoOverlay.style.display = 'none';
+        // UI fades in once dissolve is complete.
+        uiLayer.classList.add('visible');
+    }, 1500);
+}
+
+fetch('difficulty_config.json')
+    .then(r => r.json())
+    .then(config => {
+        DIFFICULTY_CONFIG = config.difficulty_levels;
+        console.log('difficulty_config.json loaded — levels:', DIFFICULTY_CONFIG);
+        initialiseUI();
+    })
+    .catch(err => {
+        console.error('Failed to load difficulty_config.json:', err);
+    });
+
+// ═══════════════════════════════════════════════════════════════════
+//  AUTO-SCALING — fit the 1920×1080 scene to the actual screen
+// ═══════════════════════════════════════════════════════════════════
+function scaleScene() {
+    const scene  = document.getElementById('scene');
+    const scaleX = window.innerWidth  / 1920;
+    const scaleY = window.innerHeight / 1080;
+    const scale  = Math.min(scaleX, scaleY);   // maintain aspect ratio
+    scene.style.transform       = `scale(${scale})`;
+    scene.style.transformOrigin = 'top left';
+    // Collapse the scene's layout footprint to its scaled size so the
+    // page does not show scrollbars
+    scene.style.width  = '1920px';
+    scene.style.height = '1080px';
+    document.body.style.width    = Math.round(1920 * scale) + 'px';
+    document.body.style.height   = Math.round(1080 * scale) + 'px';
+    document.body.style.overflow = 'hidden';
+    document.body.style.margin   = '0';
+}
+
+scaleScene();
+window.addEventListener('resize', scaleScene);
+</script>
+
+<!-- Print content — direct child of body so it sits in normal page flow -->
+<div id="summary-print-content" style="display:none"></div>
+
+</body>
+</html>

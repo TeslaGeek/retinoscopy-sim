@@ -1,0 +1,154 @@
+{
+  "difficulty_levels": [
+    {
+      "id": 1,
+      "name": "BEGINNER",
+      "subtitle": "Pure spherical errors only",
+      "accent_colour": "#1A6B8A",
+      "prescription": {
+        "sphere_min": -3.00,
+        "sphere_max": 3.00,
+        "sphere_step": 0.25,
+        "cylinder_min": 0.00,
+        "cylinder_max": 0.00,
+        "cylinder_step": 0.25,
+        "axis_min": 0,
+        "axis_max": 180,
+        "allow_plus_cylinder": false,
+        "between_eye_sph_tol": 2.00,
+        "between_eye_cyl_tol": 1.50
+      },
+      "pupil": {
+        "radius_px": 15
+      },
+      "cataract": {
+        "enabled": false,
+        "opacity": 0.0
+      },
+      "working_distance": {
+        "fixed": true,
+        "allowed_values_cm": [67]
+      }
+    },
+    {
+      "id": 2,
+      "name": "NOVICE",
+      "subtitle": "Spheres and low cylinders",
+      "accent_colour": "#1A8A6B",
+      "prescription": {
+        "sphere_min": -4.00,
+        "sphere_max": 4.00,
+        "sphere_step": 0.25,
+        "cylinder_min": -2.00,
+        "cylinder_max": 0.00,
+        "cylinder_step": 0.25,
+        "axis_min": 0,
+        "axis_max": 180,
+        "allow_plus_cylinder": false,
+        "between_eye_sph_tol": 2.00,
+        "between_eye_cyl_tol": 1.50
+      },
+      "pupil": {
+        "radius_px": 15
+      },
+      "cataract": {
+        "enabled": false,
+        "opacity": 0.0
+      },
+      "working_distance": {
+        "fixed": true,
+        "allowed_values_cm": [67]
+      }
+    },
+    {
+      "id": 3,
+      "name": "PRACTITIONER",
+      "subtitle": "Real world conditions",
+      "accent_colour": "#B8860B",
+      "prescription": {
+        "sphere_min": -6.00,
+        "sphere_max": 6.00,
+        "sphere_step": 0.25,
+        "cylinder_min": -3.00,
+        "cylinder_max": 0.00,
+        "cylinder_step": 0.25,
+        "axis_min": 0,
+        "axis_max": 180,
+        "allow_plus_cylinder": false,
+        "between_eye_sph_tol": 2.00,
+        "between_eye_cyl_tol": 1.50
+      },
+      "pupil": {
+        "radius_px": 11
+      },
+      "cataract": {
+        "enabled": false,
+        "opacity": 0.0
+      },
+      "working_distance": {
+        "fixed": false,
+        "allowed_values_cm": [67]
+      }
+    },
+    {
+      "id": 4,
+      "name": "SPECIALIST",
+      "subtitle": "Reduced pupil and variable working distance",
+      "accent_colour": "#B8520B",
+      "prescription": {
+        "sphere_min": -10.00,
+        "sphere_max": 10.00,
+        "sphere_step": 0.25,
+        "cylinder_min": -4.00,
+        "cylinder_max": 0.00,
+        "cylinder_step": 0.25,
+        "axis_min": 0,
+        "axis_max": 180,
+        "allow_plus_cylinder": false,
+        "between_eye_sph_tol": 2.00,
+        "between_eye_cyl_tol": 1.50
+      },
+      "pupil": {
+        "radius_px": 11
+      },
+      "cataract": {
+        "enabled": true,
+        "opacity": 0.45
+      },
+      "working_distance": {
+        "fixed": false,
+        "allowed_values_cm": [50, 57, 67, 80, 100]
+      }
+    },
+    {
+      "id": 5,
+      "name": "MASTER",
+      "subtitle": "Full clinical complexity",
+      "accent_colour": "#8B0000",
+      "prescription": {
+        "sphere_min": -10.00,
+        "sphere_max": 10.00,
+        "sphere_step": 0.25,
+        "cylinder_min": -4.00,
+        "cylinder_max": 4.00,
+        "cylinder_step": 0.25,
+        "axis_min": 0,
+        "axis_max": 180,
+        "allow_plus_cylinder": true,
+        "between_eye_sph_tol": 2.00,
+        "between_eye_cyl_tol": 1.50
+      },
+      "pupil": {
+        "radius_px": 11
+      },
+      "cataract": {
+        "enabled": true,
+        "opacity": 0.8
+      },
+      "working_distance": {
+        "fixed": false,
+        "allowed_values_cm": [50, 57, 67, 80, 100]
+      }
+    }
+  ]
+}
