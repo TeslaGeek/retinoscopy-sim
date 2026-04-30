@@ -134,7 +134,7 @@
         "cylinder_step": 0.25,
         "axis_min": 0,
         "axis_max": 180,
-        "allow_plus_cylinder": true,
+        "allow_plus_cylinder": false,
         "between_eye_sph_tol": 2.00,
         "between_eye_cyl_tol": 1.50
       },
